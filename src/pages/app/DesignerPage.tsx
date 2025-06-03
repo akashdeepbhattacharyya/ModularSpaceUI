@@ -734,7 +734,7 @@ const DesignerPage: React.FC = () => {
                           <div className="grid grid-cols-3 gap-2">
                             <input
                               type="number"
-                              value={selectedElement.position.x}
+                              value={selectedElement.position.x?? 0}
                               onChange={(e) => updateElement(selectedElement.id, {
                                 position: { ...selectedElement.position, x: parseFloat(e.target.value) }
                               })}

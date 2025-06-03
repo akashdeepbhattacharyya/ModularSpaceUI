@@ -4,7 +4,6 @@ import { useForm } from 'react-hook-form';
 import { motion } from 'framer-motion';
 import { Mail, Lock, Eye, EyeOff, ArrowRight, Loader, Github } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
-import toast from 'react-hot-toast';
 
 // OAuth icons (install react-icons: npm install react-icons)
 import { FcGoogle } from 'react-icons/fc';
