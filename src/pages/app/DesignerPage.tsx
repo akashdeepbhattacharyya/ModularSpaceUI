@@ -83,7 +83,7 @@ const DesignerPage: React.FC = () => {
   const { user } = useAuth();
   
   // State management
-  const [viewMode, setViewMode] = useState<'2d' | '3d'>('3d');
+  const [viewMode, setViewMode] = useState<'2d' | '3d'>('2d');
   const [selectedTool, setSelectedTool] = useState<'select' | 'move' | 'rotate' | 'scale'>('select');
   const [selectedElement, setSelectedElement] = useState<DesignElement | null>(null);
   const [showLeftPanel, setShowLeftPanel] = useState(true);
@@ -311,6 +311,11 @@ const DesignerPage: React.FC = () => {
     setDesignElements(prev => prev.map(el => 
       el.id === elementId ? { ...el, ...updates } : el
     ));
+    
+    // Update selected element if it's the one being modified
+    if (selectedElement?.id === elementId) {
+      setSelectedElement(prev => prev ? { ...prev, ...updates } : null);
+    }
   };
 
   const deleteElement = () => {
@@ -388,6 +393,21 @@ const DesignerPage: React.FC = () => {
     return designElements.reduce((total, element) => total + (element.price || 0), 0);
   };
 
+  // Helper function to safely get position values
+  const getPositionValue = (axis: 'x' | 'y' | 'z') => {
+    return selectedElement?.position?.[axis] ?? 0;
+  };
+
+  // Helper function to safely get rotation values
+  const getRotationValue = (axis: 'x' | 'y' | 'z') => {
+    return selectedElement?.rotation?.[axis] ?? 0;
+  };
+
+  // Helper function to safely get scale values
+  const getScaleValue = (axis: 'x' | 'y' | 'z') => {
+    return selectedElement?.scale?.[axis] ?? 1;
+  };
+
   if (projectLoading) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -423,14 +443,14 @@ const DesignerPage: React.FC = () => {
               >
                 2D
               </button>
-              <button
+              {/* <button
                 onClick={() => setViewMode('3d')}
                 className={`px-3 py-1 rounded ${
                   viewMode === '3d' ? 'bg-blue-100 text-blue-600' : 'text-gray-600 hover:bg-gray-100'
                 }`}
               >
                 3D
-              </button>
+              </button> */}
             </div>
 
             <div className="flex items-center space-x-2 border-l pl-4">
@@ -583,7 +603,6 @@ const DesignerPage: React.FC = () => {
               selectedTool={selectedTool}
               onObjectSelect={setSelectedElement as any}
               showGrid={true}
-              showStats={false}
             />
           ) : (
             <Designer2DCanvas
@@ -649,39 +668,6 @@ const DesignerPage: React.FC = () => {
               <Camera className="h-5 w-5" />
             </button>
           </div>
-
-          {/* Timeline (for animations) */}
-          <div className="absolute bottom-4 right-4 bg-white rounded-lg shadow-lg p-4 w-96">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-medium">Animation Timeline</h3>
-              <div className="flex items-center space-x-2">
-                <button
-                  onClick={() => setCurrentFrame(0)}
-                  className="p-1 hover:bg-gray-100 rounded"
-                >
-                  <SkipBack className="h-4 w-4" />
-                </button>
-                <button
-                  onClick={() => setIsPlaying(!isPlaying)}
-                  className="p-1 hover:bg-gray-100 rounded"
-                >
-                  {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-                </button>
-                <button
-                  onClick={() => setCurrentFrame(100)}
-                  className="p-1 hover:bg-gray-100 rounded"
-                >
-                  <SkipForward className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
-            <div className="relative h-2 bg-gray-200 rounded-full">
-              <div
-                className="absolute top-0 left-0 h-full bg-blue-600 rounded-full"
-                style={{ width: `${currentFrame}%` }}
-              />
-            </div>
-          </div>
         </div>
 
         {/* Right Panel - Properties */}
@@ -734,27 +720,36 @@ const DesignerPage: React.FC = () => {
                           <div className="grid grid-cols-3 gap-2">
                             <input
                               type="number"
-                              value={selectedElement.position.x?? 0}
+                              value={getPositionValue('x')}
                               onChange={(e) => updateElement(selectedElement.id, {
-                                position: { ...selectedElement.position, x: parseFloat(e.target.value) }
+                                position: { 
+                                  ...selectedElement.position, 
+                                  x: parseFloat(e.target.value) || 0 
+                                }
                               })}
                               className="px-2 py-1 border border-gray-300 rounded text-sm"
                               placeholder="X"
                             />
                             <input
                               type="number"
-                              value={selectedElement.position.y}
+                              value={getPositionValue('y')}
                               onChange={(e) => updateElement(selectedElement.id, {
-                                position: { ...selectedElement.position, y: parseFloat(e.target.value) }
+                                position: { 
+                                  ...selectedElement.position, 
+                                  y: parseFloat(e.target.value) || 0 
+                                }
                               })}
                               className="px-2 py-1 border border-gray-300 rounded text-sm"
                               placeholder="Y"
                             />
                             <input
                               type="number"
-                              value={selectedElement.position.z}
+                              value={getPositionValue('z')}
                               onChange={(e) => updateElement(selectedElement.id, {
-                                position: { ...selectedElement.position, z: parseFloat(e.target.value) }
+                                position: { 
+                                  ...selectedElement.position, 
+                                  z: parseFloat(e.target.value) || 0 
+                                }
                               })}
                               className="px-2 py-1 border border-gray-300 rounded text-sm"
                               placeholder="Z"
@@ -768,27 +763,36 @@ const DesignerPage: React.FC = () => {
                           <div className="grid grid-cols-3 gap-2">
                             <input
                               type="number"
-                              value={selectedElement.rotation.x}
+                              value={getRotationValue('x')}
                               onChange={(e) => updateElement(selectedElement.id, {
-                                rotation: { ...selectedElement.rotation, x: parseFloat(e.target.value) }
+                                rotation: { 
+                                  ...selectedElement.rotation, 
+                                  x: parseFloat(e.target.value) || 0 
+                                }
                               })}
                               className="px-2 py-1 border border-gray-300 rounded text-sm"
                               placeholder="X"
                             />
                             <input
                               type="number"
-                              value={selectedElement.rotation.y}
+                              value={getRotationValue('y')}
                               onChange={(e) => updateElement(selectedElement.id, {
-                                rotation: { ...selectedElement.rotation, y: parseFloat(e.target.value) }
+                                rotation: { 
+                                  ...selectedElement.rotation, 
+                                  y: parseFloat(e.target.value) || 0 
+                                }
                               })}
                               className="px-2 py-1 border border-gray-300 rounded text-sm"
                               placeholder="Y"
                             />
                             <input
                               type="number"
-                              value={selectedElement.rotation.z}
+                              value={getRotationValue('z')}
                               onChange={(e) => updateElement(selectedElement.id, {
-                                rotation: { ...selectedElement.rotation, z: parseFloat(e.target.value) }
+                                rotation: { 
+                                  ...selectedElement.rotation, 
+                                  z: parseFloat(e.target.value) || 0 
+                                }
                               })}
                               className="px-2 py-1 border border-gray-300 rounded text-sm"
                               placeholder="Z"
@@ -802,9 +806,12 @@ const DesignerPage: React.FC = () => {
                           <div className="grid grid-cols-3 gap-2">
                             <input
                               type="number"
-                              value={selectedElement.scale.x}
+                              value={getScaleValue('x')}
                               onChange={(e) => updateElement(selectedElement.id, {
-                                scale: { ...selectedElement.scale, x: parseFloat(e.target.value) }
+                                scale: { 
+                                  ...selectedElement.scale, 
+                                  x: parseFloat(e.target.value) || 1 
+                                }
                               })}
                               className="px-2 py-1 border border-gray-300 rounded text-sm"
                               placeholder="X"
@@ -812,9 +819,12 @@ const DesignerPage: React.FC = () => {
                             />
                             <input
                               type="number"
-                              value={selectedElement.scale.y}
+                              value={getScaleValue('y')}
                               onChange={(e) => updateElement(selectedElement.id, {
-                                scale: { ...selectedElement.scale, y: parseFloat(e.target.value) }
+                                scale: { 
+                                  ...selectedElement.scale, 
+                                  y: parseFloat(e.target.value) || 1 
+                                }
                               })}
                               className="px-2 py-1 border border-gray-300 rounded text-sm"
                               placeholder="Y"
@@ -822,9 +832,12 @@ const DesignerPage: React.FC = () => {
                             />
                             <input
                               type="number"
-                              value={selectedElement.scale.z}
+                              value={getScaleValue('z')}
                               onChange={(e) => updateElement(selectedElement.id, {
-                                scale: { ...selectedElement.scale, z: parseFloat(e.target.value) }
+                                scale: { 
+                                  ...selectedElement.scale, 
+                                  z: parseFloat(e.target.value) || 1 
+                                }
                               })}
                               className="px-2 py-1 border border-gray-300 rounded text-sm"
                               placeholder="Z"
@@ -924,6 +937,7 @@ const DesignerPage: React.FC = () => {
       {showAIChat && (
         <AIChat
           projectId={projectId}
+          setShowAIChat={setShowAIChat}
           context={{ designElements, project }}
           onSuggestionApply={(suggestion) => {
             console.log('Applying AI suggestion:', suggestion);
@@ -948,13 +962,13 @@ const DesignerPage: React.FC = () => {
               <CollaborationPanel
                 projectId={projectId!}
                 currentUser={{
-  id: user?.id?.toString() || '',
-  name: `${user?.firstName} ${user?.lastName}`,
-  email: user?.email || '',
-  avatar: `https://ui-avatars.com/api/?name=${user?.firstName}+${user?.lastName}&background=3B82F6&color=fff`,
-  status: 'online',
-  role: 'owner'
-}}
+                  id: user?.id?.toString() || '',
+                  name: `${user?.firstName} ${user?.lastName}`,
+                  email: user?.email || '',
+                  avatar: `https://ui-avatars.com/api/?name=${user?.firstName}+${user?.lastName}&background=3B82F6&color=fff`,
+                  status: 'online',
+                  role: 'owner'
+                }}
               />
             </div>
           </div>

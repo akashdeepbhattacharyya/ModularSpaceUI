@@ -62,7 +62,7 @@ const Designer2DCanvas: React.FC<Designer2DCanvasProps> = ({
 
     const canvas = new fabric.Canvas(canvasRef.current, {
       width: window.innerWidth - 300,
-      height: window.innerHeight - 200,
+      height: window.innerHeight,
       backgroundColor: '#ffffff',
       selection: true,
       preserveObjectStacking: true,
@@ -542,7 +542,7 @@ const Designer2DCanvas: React.FC<Designer2DCanvasProps> = ({
         <canvas ref={canvasRef} />
         
         {/* Cabinet Presets Panel */}
-        <div className="absolute top-4 left-4 bg-white rounded-lg shadow-lg p-4 w-64">
+        <div className="absolute top-4 left-4 bg-white rounded-lg shadow-lg p-4 w-64 hidden">
           <h3 className="text-sm font-semibold text-gray-900 mb-3">Cabinet Presets</h3>
           <div className="space-y-2">
             {cabinetPresets.map((preset) => (
@@ -635,7 +635,7 @@ const Designer2DCanvas: React.FC<Designer2DCanvasProps> = ({
         )}
         
         {/* Zoom Controls */}
-        <div className="absolute bottom-4 right-4 bg-white rounded-lg shadow-lg p-2 flex items-center space-x-2">
+        {/* <div className="absolute bottom-4 right-4 bg-white rounded-lg shadow-lg p-2 flex items-center space-x-2">
           <button
             onClick={() => handleZoom(-0.1)}
             className="p-1 hover:bg-gray-100 rounded"
@@ -649,7 +649,7 @@ const Designer2DCanvas: React.FC<Designer2DCanvasProps> = ({
           >
             +
           </button>
-        </div>
+        </div> */}
       </div>
     </div>
   );

@@ -39,12 +39,14 @@ interface AIChatProps {
   projectId?: string;
   context?: any;
   onSuggestionApply?: (suggestion: any) => void;
+  setShowAIChat: (show: boolean) => void;
 }
 
 const AIChat: React.FC<AIChatProps> = ({
   projectId,
   context,
-  onSuggestionApply
+  onSuggestionApply,
+  setShowAIChat
 }) => {
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -205,7 +207,7 @@ const AIChat: React.FC<AIChatProps> = ({
             {isExpanded ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
           </button>
           <button
-            onClick={() => {/* Close chat */}}
+            onClick={() => setShowAIChat(false)}
             className="p-2 hover:bg-white/20 rounded transition-colors"
           >
             <X className="h-4 w-4" />
