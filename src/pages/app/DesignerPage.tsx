@@ -77,6 +77,40 @@ interface DesignElement {
   metadata?: any;
 }
 
+interface Wall {
+  id: string;
+  type: 'straight' | 'corner' | 'arch' | 'window' | 'door';
+  position: { x: number; y: number; z: number };
+  rotation: { x: number; y: number; z: number };
+  scale: { x: number; y: number; z: number };
+  thickness: number;
+  height: number;
+  material?: string;
+  color?: string;
+}
+
+interface Module {
+  id: string;
+  type: 'base' | 'wall' | 'tall' | 'island' | 'peninsula';
+  name: string;
+  position: { x: number; y: number; z: number };
+  rotation: { x: number; y: number; z: number };
+  scale: { x: number; y: number; z: number };
+  material?: string;
+  color?: string;
+  price?: number;
+  metadata?: any;
+}
+
+interface DesignSnapshot {
+  elements: DesignElement[];
+  walls: Wall[];
+  modules: Module[];
+  selectedElementId: string | null;
+  grid: { size: number; show: boolean; snap: boolean };
+  // ...other design state
+}
+
 const DesignerPage: React.FC = () => {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
@@ -540,6 +574,8 @@ const DesignerPage: React.FC = () => {
                             key={item.id}
                             onClick={() => addElement(item, 'cabinet')}
                             className="w-full text-left p-2 rounded hover:bg-gray-50 text-sm"
+                            disabled={!project?.data?.walls || project.data.walls.length === 0} // <-- Disable if no walls
+                            title={!project?.data?.walls || project.data.walls.length === 0 ? "Draw walls first" : ""}
                           >
                             <div className="flex items-center justify-between">
                               <span className="font-medium">{item.name}</span>
@@ -974,6 +1010,19 @@ const DesignerPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Instructions Overlay */}
+      <div className="absolute top-2 left-1/2 transform -translate-x-1/2 z-20">
+        {(!project?.data?.walls || project.data.walls.length === 0) ? (
+          <div className="bg-black bg-opacity-80 text-white px-4 py-2 rounded shadow">
+            Step 1: Draw your kitchen walls on the black canvas.
+          </div>
+        ) : (
+          <div className="bg-green-700 bg-opacity-80 text-white px-4 py-2 rounded shadow">
+            Step 2: Place kitchen modules inside the walls.
+          </div>
+        )}
+      </div>
     </div>
   );
 };
