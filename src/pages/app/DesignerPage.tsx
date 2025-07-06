@@ -46,6 +46,7 @@ import Designer2DCanvas from '../../components/designer/Designer2DCanvas';
 import AIChat from '../../components/ai/AIChat';
 import CollaborationPanel from '../../components/collaboration/CollaborationPanel';
 import { useAuth } from '../../contexts/AuthContext';
+import { KitchenToolbar } from '../../components/designer/DesignerToolbar';
 
 interface Project {
   id: string;
@@ -121,7 +122,7 @@ const DesignerPage: React.FC = () => {
   const [selectedTool, setSelectedTool] = useState<'select' | 'move' | 'rotate' | 'scale'>('select');
   const [selectedElement, setSelectedElement] = useState<DesignElement | null>(null);
   const [showLeftPanel, setShowLeftPanel] = useState(true);
-  const [showRightPanel, setShowRightPanel] = useState(true);
+  const [showRightPanel, setShowRightPanel] = useState(false);
   const [showAIChat, setShowAIChat] = useState(false);
   const [showCollaboration, setShowCollaboration] = useState(false);
   const [designElements, setDesignElements] = useState<DesignElement[]>([]);
@@ -546,7 +547,7 @@ const DesignerPage: React.FC = () => {
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden">
         {/* Left Panel - Library */}
-        <AnimatePresence>
+        {/* <AnimatePresence>
           {showLeftPanel && (
             <motion.div
               initial={{ width: 0, opacity: 0 }}
@@ -557,7 +558,6 @@ const DesignerPage: React.FC = () => {
               <div className="p-4">
                 <h2 className="text-lg font-semibold text-gray-900 mb-4">Elements Library</h2>
                 
-                {/* Cabinets */}
                 <div className="mb-6">
                   <h3 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
                     <Package className="h-4 w-4 mr-2" />
@@ -591,7 +591,6 @@ const DesignerPage: React.FC = () => {
                   ))}
                 </div>
 
-                {/* Appliances */}
                 <div className="mb-6">
                   <h3 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
                     <Box className="h-4 w-4 mr-2" />
@@ -623,14 +622,14 @@ const DesignerPage: React.FC = () => {
             </motion.div>
           )}
         </AnimatePresence>
-
         {/* Toggle Left Panel Button */}
-        <button
+        {/* <button
           onClick={() => setShowLeftPanel(!showLeftPanel)}
           className="absolute left-0 top-1/2 transform -translate-y-1/2 bg-white shadow-md rounded-r-lg p-2 z-10"
         >
           {showLeftPanel ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-        </button>
+        </button> */}
+        <KitchenToolbar />
 
         {/* Canvas Area */}
         <div className="flex-1 relative">
@@ -641,16 +640,11 @@ const DesignerPage: React.FC = () => {
               showGrid={true}
             />
           ) : (
-            <Designer2DCanvas
-              onObjectSelect={setSelectedElement as any}
-              gridSize={20}
-              showGrid={true}
-              showRulers={true}
-            />
+            <Designer2DCanvas />
           )}
 
           {/* Tool Selection */}
-          <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-white rounded-lg shadow-lg p-2 flex space-x-2">
+          {/* <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-white rounded-lg shadow-lg p-2 flex space-x-2">
             <button
               onClick={() => setSelectedTool('select')}
               className={`p-2 rounded ${
@@ -687,10 +681,10 @@ const DesignerPage: React.FC = () => {
             >
               <Maximize2 className="h-5 w-5" />
             </button>
-          </div>
+          </div> */}
 
           {/* View Controls */}
-          <div className="absolute bottom-4 left-4 bg-white rounded-lg shadow-lg p-2 flex flex-col space-y-2">
+          {/* <div className="absolute bottom-4 left-4 bg-white rounded-lg shadow-lg p-2 flex flex-col space-y-2">
             <button className="p-2 hover:bg-gray-100 rounded" title="Zoom In">
               <ZoomIn className="h-5 w-5" />
             </button>
@@ -703,11 +697,11 @@ const DesignerPage: React.FC = () => {
             <button className="p-2 hover:bg-gray-100 rounded" title="Screenshot">
               <Camera className="h-5 w-5" />
             </button>
-          </div>
+          </div> */}
         </div>
 
         {/* Right Panel - Properties */}
-        <AnimatePresence>
+        {/* <AnimatePresence>
           {showRightPanel && (
             <motion.div
               initial={{ width: 0, opacity: 0 }}
@@ -720,7 +714,6 @@ const DesignerPage: React.FC = () => {
                   <>
                     <h2 className="text-lg font-semibold text-gray-900 mb-4">Properties</h2>
                     
-                    {/* Element Info */}
                     <div className="mb-6">
                       <h3 className="text-sm font-medium text-gray-700 mb-2">Element Info</h3>
                       <div className="space-y-2">
@@ -746,11 +739,9 @@ const DesignerPage: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Transform */}
                     <div className="mb-6">
                       <h3 className="text-sm font-medium text-gray-700 mb-2">Transform</h3>
                       <div className="space-y-3">
-                        {/* Position */}
                         <div>
                           <label className="text-xs text-gray-500">Position</label>
                           <div className="grid grid-cols-3 gap-2">
@@ -793,7 +784,6 @@ const DesignerPage: React.FC = () => {
                           </div>
                         </div>
 
-                        {/* Rotation */}
                         <div>
                           <label className="text-xs text-gray-500">Rotation</label>
                           <div className="grid grid-cols-3 gap-2">
@@ -836,7 +826,6 @@ const DesignerPage: React.FC = () => {
                           </div>
                         </div>
 
-                        {/* Scale */}
                         <div>
                           <label className="text-xs text-gray-500">Scale</label>
                           <div className="grid grid-cols-3 gap-2">
@@ -884,7 +873,6 @@ const DesignerPage: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Materials */}
                     <div className="mb-6">
                       <h3 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
                         <Palette className="h-4 w-4 mr-2" />
@@ -908,7 +896,6 @@ const DesignerPage: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Actions */}
                     <div className="flex space-x-2">
                       <button
                         onClick={duplicateElement}
@@ -930,7 +917,6 @@ const DesignerPage: React.FC = () => {
                   <>
                     <h2 className="text-lg font-semibold text-gray-900 mb-4">Project Overview</h2>
                     
-                    {/* Project Stats */}
                     <div className="space-y-4">
                       <div className="bg-gray-50 rounded-lg p-4">
                         <h3 className="text-sm font-medium text-gray-700 mb-2">Statistics</h3>
@@ -958,15 +944,15 @@ const DesignerPage: React.FC = () => {
               </div>
             </motion.div>
           )}
-        </AnimatePresence>
+        </AnimatePresence> */}
 
         {/* Toggle Right Panel Button */}
-        <button
+        {/* <button
           onClick={() => setShowRightPanel(!showRightPanel)}
           className="absolute right-0 top-1/2 transform -translate-y-1/2 bg-white shadow-md rounded-l-lg p-2 z-10"
         >
           {showRightPanel ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
-        </button>
+        </button> */}
       </div>
 
       {/* AI Chat */}

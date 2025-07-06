@@ -7,6 +7,7 @@ import { HelmetProvider } from 'react-helmet-async';
 import ProtectedRoute from './components/common/ProtectedRoute';
 import { Provider } from 'react-redux';
 import store from './store/store';
+import { TooltipProvider } from './components/ui/toolTip'; // <-- Import TooltipProvider
 
 // Loading component for Suspense fallback
 const LoadingSpinner = () => (
@@ -71,71 +72,73 @@ function App() {
         <QueryClientProvider client={queryClient}>
           <Router>
             <AuthProvider>
-              <Toaster position="top-right" />
-              <Suspense fallback={<LoadingSpinner />}>
-                <Routes>
-                  <Route path="/" element={<PublicLayout />}>
-                    <Route index element={<LandingPage />} />
-                    <Route path="pricing" element={<PricingPage />} />
-                    <Route path="about" element={<AboutPage />} />
-                    <Route path="features" element={<FeaturesPage />} />
-                    <Route path="contact" element={<ContactPage />} />
-                  </Route>
+              <TooltipProvider> {/* <-- Wrap your app here */}
+                <Toaster position="top-right" />
+                <Suspense fallback={<LoadingSpinner />}>
+                  <Routes>
+                    <Route path="/" element={<PublicLayout />}>
+                      <Route index element={<LandingPage />} />
+                      <Route path="pricing" element={<PricingPage />} />
+                      <Route path="about" element={<AboutPage />} />
+                      <Route path="features" element={<FeaturesPage />} />
+                      <Route path="contact" element={<ContactPage />} />
+                    </Route>
 
-                  <Route path="/terms" element={<TermsPage />} />
-                  <Route path="/privacy" element={<PrivacyPage />} />
-                  <Route path="/help" element={<HelpPage />} />
-                  <Route path="/blog" element={<BlogPage />} />
+                    <Route path="/terms" element={<TermsPage />} />
+                    <Route path="/privacy" element={<PrivacyPage />} />
+                    <Route path="/help" element={<HelpPage />} />
+                    <Route path="/blog" element={<BlogPage />} />
 
-                  {/* Auth Routes */}
-                  <Route path="/auth" element={<AuthLayout />}>
-                    <Route path="login" element={<LoginPage />} />
-                    <Route path="register" element={<RegisterPage />} />
-                    <Route path="forgot-password" element={<ForgotPasswordPage />} />
-                    <Route path="oauth/callback" element={<OAuthCallback />} />
-                  </Route>
+                    {/* Auth Routes */}
+                    <Route path="/auth" element={<AuthLayout />}>
+                      <Route path="login" element={<LoginPage />} />
+                      <Route path="register" element={<RegisterPage />} />
+                      <Route path="forgot-password" element={<ForgotPasswordPage />} />
+                      <Route path="oauth/callback" element={<OAuthCallback />} />
+                    </Route>
 
-                  <Route
-                    path="/app"
-                    element={
-                      <ProtectedRoute>
-                        <DashboardLayout />
-                      </ProtectedRoute>
-                    }
-                  >
-                    <Route index element={<Navigate to="/app/dashboard" />} />
-                    <Route path="dashboard" element={<DashboardPage />} />
-                    <Route path="projects" element={<ProjectsPage />} />
-                    <Route path="designer/:projectId?" element={<DesignerPage />} />
-                    <Route path="profile" element={<ProfilePage />} />
-                    <Route path="billing" element={<BillingPage />} />
-                    <Route path="templates" element={<TemplatesPage />} />
-                    <Route path="analytics" element={<AnalyticsPage />} />
-                    <Route path="team" element={<TeamPage />} />
-                    <Route path="marketplace" element={<MarketplacePage />} />
-                    <Route path="settings" element={<SettingsPage />} />
-                    <Route path="api-keys" element={<ApiKeysPage />} />
-                  </Route>
+                    <Route
+                      path="/app"
+                      element={
+                        <ProtectedRoute>
+                          <DashboardLayout />
+                        </ProtectedRoute>
+                      }
+                    >
+                      <Route index element={<Navigate to="/app/dashboard" />} />
+                      <Route path="dashboard" element={<DashboardPage />} />
+                      <Route path="projects" element={<ProjectsPage />} />
+                      <Route path="designer/:projectId?" element={<DesignerPage />} />
+                      <Route path="profile" element={<ProfilePage />} />
+                      <Route path="billing" element={<BillingPage />} />
+                      <Route path="templates" element={<TemplatesPage />} />
+                      <Route path="analytics" element={<AnalyticsPage />} />
+                      <Route path="team" element={<TeamPage />} />
+                      <Route path="marketplace" element={<MarketplacePage />} />
+                      <Route path="settings" element={<SettingsPage />} />
+                      <Route path="api-keys" element={<ApiKeysPage />} />
+                    </Route>
 
-                  {/* Admin Routes */}
-                  <Route
-                    path="/admin"
-                    element={
-                      <ProtectedRoute requiredRole="ADMIN">
-                        <AdminLayout />
-                      </ProtectedRoute>
-                    }
-                  >
-                    <Route index element={<AdminOverviewPage />} />
-                    <Route path="users" element={<AdminUsersPage />} />
-                    <Route path="projects" element={<AdminProjectsPage />} />
-                    <Route path="analytics" element={<AdminAnalyticsPage />} />
-                  </Route>
+                    {/* Admin Routes */}
+                    <Route
+                      path="/admin"
+                      element={
+                        <ProtectedRoute requiredRole="ADMIN">
+                          <AdminLayout />
+                        </ProtectedRoute>
+                      }
+                    >
+                      <Route index element={<AdminOverviewPage />} />
+                      <Route path="users" element={<AdminUsersPage />} />
+                      <Route path="projects" element={<AdminProjectsPage />} />
+                      <Route path="analytics" element={<AdminAnalyticsPage />} />
+                    </Route>
 
-                  {/* 404 */}
-                  <Route path="*" element={<NotFoundPage />} />
-                </Routes>
-              </Suspense>
+                    {/* 404 */}
+                    <Route path="*" element={<NotFoundPage />} />
+                  </Routes>
+                </Suspense>
+              </TooltipProvider>
             </AuthProvider>
           </Router>
         </QueryClientProvider>
