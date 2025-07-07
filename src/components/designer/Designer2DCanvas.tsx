@@ -1169,7 +1169,7 @@ function debounce<T extends (...args: any[]) => any>(func: T, wait: number): T {
   let timeout: NodeJS.Timeout;
   return function (this: any, ...args: any[]) {
     clearTimeout(timeout);
-    timeout = setTimeout(function () {
+    timeout = setTimeout(function (this: any) {
       func.apply(this, args);
     }.bind(this), wait);
   } as T;
