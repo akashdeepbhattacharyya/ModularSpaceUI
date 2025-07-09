@@ -1,157 +1,74 @@
-import { Button } from '../../components/ui/button';
-import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/toolTip';
-import { useKitchenStore, Tool } from '../../store/kitchenStore';
-import { 
-  MousePointer, 
-  Square, 
-  Minus, 
-  Circle, 
-  Flame, 
-  Refrigerator,
-  Trash2,
-  Undo,
-  Redo 
-} from 'lucide-react';
 
-const tools: Array<{
-  id: Tool;
-  icon: React.ComponentType<any>;
-  label: string;
-  description: string;
-}> = [
-  {
-    id: 'select',
-    icon: MousePointer,
-    label: 'Select',
-    description: 'Select and move objects'
-  },
-  {
-    id: 'wall',
-    icon: Minus,
-    label: 'Draw Wall',
-    description: 'Click to start, click to end wall'
-  },
-  {
-    id: 'cabinet',
-    icon: Square,
-    label: 'Cabinet',
-    description: 'Add kitchen cabinets'
-  },
-  {
-    id: 'sink',
-    icon: Circle,
-    label: 'Sink',
-    description: 'Add kitchen sink'
-  },
-  {
-    id: 'stove',
-    icon: Flame,
-    label: 'Stove',
-    description: 'Add cooking stove'
-  },
-  {
-    id: 'fridge',
-    icon: Refrigerator,
-    label: 'Fridge',
-    description: 'Add refrigerator'
-  },
-];
+import React from 'react';
+import { ChevronRight, ChevronDown } from 'lucide-react';
+import { KitchenSidePanelProps } from '../../data/interface';
 
-export const KitchenToolbar = () => {
-  const { 
-    activeTool, 
-    setActiveTool, 
-    undo, 
-    redo, 
-    history, 
-    historyIndex 
-  } = useKitchenStore();
+// Kitchen Side Panel Component
 
-  const canUndo = historyIndex > 0;
-  const canRedo = historyIndex < history.length - 1;
+export const KitchenSidePanel: React.FC<KitchenSidePanelProps> = ({
+  isVisible,
+  kitchenItems,
+  expandedCategories,
+  onToggleCategory,
+  onAddKitchenItem
+}) => {
+  const categories = {
+    appliances: 'Kitchen Appliances',
+    fixtures: 'Kitchen Fixtures',
+    cabinets: 'Cabinets & Storage',
+    furniture: 'Kitchen Furniture'
+  };
+
+  if (!isVisible) return null;
 
   return (
-    <div className="flex flex-col gap-2 p-3">
-      {/* Tool buttons */}
-      <div className="space-y-2">
-        {tools.map((tool) => {
-          const Icon = tool.icon;
-          const isActive = activeTool === tool.id;
-          
-          return (
-            <Tooltip key={tool.id}>
-              <TooltipTrigger asChild>
-                <Button
-                  variant={isActive ? "default" : "ghost"}
-                  size="icon"
-                  className={`w-12 h-12 ${
-                    isActive 
-                      ? 'bg-primary text-primary-foreground shadow-medium' 
-                      : 'hover:bg-secondary'
-                  }`}
-                  onClick={() => setActiveTool(tool.id)}
-                >
-                  <Icon className="h-5 w-5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="right" className="ml-2">
-                <div>
-                  <p className="font-medium">{tool.label}</p>
-                  <p className="text-xs text-muted-foreground">{tool.description}</p>
-                </div>
-              </TooltipContent>
-            </Tooltip>
-          );
-        })}
+    <div className="w-64 bg-white border-r border-gray-300 h-full overflow-y-auto">
+      <div className="p-4 border-b border-gray-200">
+        <h2 className="text-lg font-semibold text-gray-800">Kitchen Items</h2>
+        <p className="text-sm text-gray-600 mt-1">Click items to add to your design</p>
       </div>
-
-      {/* Separator */}
-      <div className="border-t border-border my-2" />
-
-      {/* Action buttons */}
-      <div className="space-y-2">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="w-12 h-12"
-              onClick={undo}
-              disabled={!canUndo}
+      
+      <div className="p-2">
+        {Object.entries(categories).map(([categoryKey, categoryName]) => (
+          <div key={categoryKey} className="mb-2">
+            <button
+              onClick={() => onToggleCategory(categoryKey)}
+              className="w-full flex items-center justify-between p-2 text-left hover:bg-gray-50 rounded transition-colors"
             >
-              <Undo className="h-4 w-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="right" className="ml-2">
-            <p>Undo (Ctrl+Z)</p>
-          </TooltipContent>
-        </Tooltip>
-
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="w-12 h-12"
-              onClick={redo}
-              disabled={!canRedo}
-            >
-              <Redo className="h-4 w-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="right" className="ml-2">
-            <p>Redo (Ctrl+Y)</p>
-          </TooltipContent>
-        </Tooltip>
-      </div>
-
-      {/* Grid indicator */}
-      <div className="mt-auto pt-4 border-t border-border">
-        <div className="text-xs text-center text-muted-foreground">
-          <div className="w-8 h-8 mx-auto mb-1 border border-grid-line rounded grid-bg">
-            <div className="w-full h-full bg-grid-line/20" />
+              <span className="font-medium text-gray-700">{categoryName}</span>
+              {expandedCategories[categoryKey] ? (
+                <ChevronDown size={16} className="text-gray-500" />
+              ) : (
+                <ChevronRight size={16} className="text-gray-500" />
+              )}
+            </button>
+            
+            {expandedCategories[categoryKey] && (
+              <div className="ml-4 space-y-1">
+                {Object.entries(kitchenItems)
+                  .filter(([, config]) => config.category === categoryKey)
+                  .map(([itemKey, config]) => (
+                    <button
+                      key={itemKey}
+                      onClick={() => onAddKitchenItem(itemKey)}
+                      className="w-full flex items-center gap-2 p-2 text-left hover:bg-gray-100 rounded text-sm transition-colors"
+                      title={`Add ${config.name} to your kitchen design`}
+                    >
+                      <span className="text-lg">{config.icon}</span>
+                      <span className="text-gray-700">{config.name}</span>
+                    </button>
+                  ))}
+              </div>
+            )}
           </div>
-          <span>Grid</span>
+        ))}
+      </div>
+      
+      <div className="p-4 border-t border-gray-200 mt-4">
+        <div className="text-xs text-gray-500 space-y-1">
+          <p>💡 <strong>Tip:</strong> Use Select tool to move items</p>
+          <p>📏 Select items to adjust dimensions</p>
+          <p>🔄 Rotate items in 45° increments</p>
         </div>
       </div>
     </div>
