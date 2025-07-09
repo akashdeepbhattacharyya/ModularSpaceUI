@@ -8,7 +8,6 @@ import {
   Shield,
   Zap,
   Users,
-  Globe,
   Headphones,
   ChevronDown,
   ChevronUp

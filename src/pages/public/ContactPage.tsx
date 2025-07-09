@@ -2,19 +2,15 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useForm } from 'react-hook-form';
 import {
-  Mail,
   Phone,
   MapPin,
   Clock,
   Send,
   MessageSquare,
   Headphones,
-  FileText,
   Users,
   Building,
-  HelpCircle,
-  AlertCircle
-} from 'lucide-react';
+  HelpCircle} from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 

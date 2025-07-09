@@ -10,19 +10,10 @@ import {
   Key,
   Database,
   Download,
-  Upload,
-  Mail,
-  Smartphone,
   Monitor,
   Moon,
   Sun,
-  Check,
-  X,
   Save,
-  AlertCircle,
-  HelpCircle,
-  ToggleLeft,
-  ToggleRight
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../contexts/AuthContext';

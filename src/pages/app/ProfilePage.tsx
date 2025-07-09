@@ -10,11 +10,8 @@ import {
   Bell,
   Shield,
   Palette,
-  Globe,
   Key,
-  LogOut,
   Trash2,
-  Check
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useMutation } from '@tanstack/react-query';

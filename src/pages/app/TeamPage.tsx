@@ -9,7 +9,6 @@ import {
   Settings,
   Trash2,
   Edit,
-  Check,
   X,
   Clock,
   Crown,

@@ -4,7 +4,6 @@ import { motion } from 'framer-motion';
 import {
   Plus,
   Search,
-  Filter,
   Grid,
   List,
   Calendar,
@@ -13,7 +12,6 @@ import {
   Eye,
   Edit,
   Trash2,
-  Download,
   Share2,
   Copy
 } from 'lucide-react';

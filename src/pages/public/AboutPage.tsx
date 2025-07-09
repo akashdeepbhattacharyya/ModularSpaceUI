@@ -3,10 +3,7 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   Users,
-  Target,
   Lightbulb,
-  Award,
-  Globe,
   Heart,
   Rocket,
   Shield,

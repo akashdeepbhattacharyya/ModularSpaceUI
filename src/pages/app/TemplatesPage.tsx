@@ -1,26 +1,20 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   Grid,
   List,
   Search,
-  Filter,
-  Download,
   Eye,
   Star,
-  Clock,
   Users,
   Sparkles,
   Home,
   Building,
   Trees,
-  Palette,
   DollarSign,
   Copy,
   Heart,
   Share2,
-  Lock
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';

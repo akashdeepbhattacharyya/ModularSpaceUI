@@ -1,1016 +1,1042 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { AnimatePresence, motion } from 'framer-motion';
-import {
-  Save,
-  Download,
-  Share2,
-  Settings,
-  Undo,
-  Redo,
-  Grid3X3,
-  Layers,
-  Box,
-  Eye,
-  Package,
-  Palette,
-  DollarSign,
-  FileText,
-  HelpCircle,
-  ChevronLeft,
-  ChevronRight,
-  Maximize2,
-  ZoomIn,
-  ZoomOut,
-  RefreshCw,
-  Copy,
-  Trash2,
-  Lock,
-  Unlock,
-  Camera,
-  Video,
-  Play,
-  Pause,
-  SkipBack,
-  SkipForward,
-  Move,
-  X
-} from 'lucide-react';
-import { useQuery, useMutation } from '@tanstack/react-query';
-import axios from 'axios';
-import toast from 'react-hot-toast';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
+import { Trash2, Download, Move, Home, Square, Minus, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
 
-// Import custom components
-import DesignerCanvas from '../../components/designer/DesignerCanvas';
-import Designer2DCanvas from '../../components/designer/Designer2DCanvas';
-import AIChat from '../../components/ai/AIChat';
-import CollaborationPanel from '../../components/collaboration/CollaborationPanel';
-import { useAuth } from '../../contexts/AuthContext';
-import { KitchenToolbar } from '../../components/designer/DesignerToolbar';
-
-interface Project {
+// Type definitions
+interface BaseObject {
   id: string;
-  name: string;
-  description: string;
-  thumbnail?: string;
-  data: any;
-  settings: {
-    units: 'metric' | 'imperial';
-    gridSize: number;
-    snapToGrid: boolean;
-    autoSave: boolean;
-  };
-  collaborators: any[];
-  createdAt: string;
-  updatedAt: string;
+  type: string;
 }
 
-interface DesignElement {
-  id: string;
-  type: 'cabinet' | 'appliance' | 'countertop' | 'sink' | 'other';
-  name: string;
-  position: { x: number; y: number; z: number };
-  rotation: { x: number; y: number; z: number };
-  scale: { x: number; y: number; z: number };
-  material?: string;
-  color?: string;
-  price?: number;
-  metadata?: any;
-}
-
-interface Wall {
-  id: string;
-  type: 'straight' | 'corner' | 'arch' | 'window' | 'door';
-  position: { x: number; y: number; z: number };
-  rotation: { x: number; y: number; z: number };
-  scale: { x: number; y: number; z: number };
+interface Wall extends BaseObject {
+  type: 'wall';
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
   thickness: number;
+}
+
+interface Door extends BaseObject {
+  type: 'door';
+  x: number;
+  y: number;
+  width: number;
   height: number;
-  material?: string;
-  color?: string;
+  rotation: number;
+  doorType: 'swing-right' | 'swing-left';
 }
 
-interface Module {
-  id: string;
-  type: 'base' | 'wall' | 'tall' | 'island' | 'peninsula';
-  name: string;
-  position: { x: number; y: number; z: number };
-  rotation: { x: number; y: number; z: number };
-  scale: { x: number; y: number; z: number };
-  material?: string;
-  color?: string;
-  price?: number;
-  metadata?: any;
+interface Window extends BaseObject {
+  type: 'window';
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation: number;
 }
 
-interface DesignSnapshot {
-  elements: DesignElement[];
-  walls: Wall[];
-  modules: Module[];
-  selectedElementId: string | null;
-  grid: { size: number; show: boolean; snap: boolean };
-  // ...other design state
+type DesignObject = Wall | Door | Window;
+
+interface Point {
+  x: number;
+  y: number;
 }
 
-const DesignerPage: React.FC = () => {
-  const { projectId } = useParams<{ projectId: string }>();
-  const navigate = useNavigate();
-  const { user } = useAuth();
+interface DragStart {
+  x: number;
+  y: number;
+  objectId: string;
+}
+
+interface CurrentLine {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+}
+
+interface DesignData {
+  objects: DesignObject[];
+  zoom: number;
+  pan: Point;
+  backgroundColor: string;
+  timestamp: string;
+  version: string;
+}
+
+interface FeetInches {
+  feet: number;
+  inches: number;
+  totalInches: number;
+}
+
+type SelectedTool = 'select' | 'wall' | 'door' | 'window';
+
+const ArchitecturalDesigner: React.FC = () => {
+  const [objects, setObjects] = useState<DesignObject[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedTool, setSelectedTool] = useState<SelectedTool>('select');
+  const [backgroundColor, setBackgroundColor] = useState<string>('#ffffff');
+  const [isDrawing, setIsDrawing] = useState<boolean>(false);
+  const [startPoint, setStartPoint] = useState<Point | null>(null);
+  const [currentLine, setCurrentLine] = useState<CurrentLine | null>(null);
+  const [dragStart, setDragStart] = useState<DragStart | null>(null);
+  const [isPanning, setIsPanning] = useState<boolean>(false);
+  const [panStart, setPanStart] = useState<Point | null>(null);
   
-  // State management
-  const [viewMode, setViewMode] = useState<'2d' | '3d'>('2d');
-  const [selectedTool, setSelectedTool] = useState<'select' | 'move' | 'rotate' | 'scale'>('select');
-  const [selectedElement, setSelectedElement] = useState<DesignElement | null>(null);
-  const [showLeftPanel, setShowLeftPanel] = useState(true);
-  const [showRightPanel, setShowRightPanel] = useState(false);
-  const [showAIChat, setShowAIChat] = useState(false);
-  const [showCollaboration, setShowCollaboration] = useState(false);
-  const [designElements, setDesignElements] = useState<DesignElement[]>([]);
-  const [undoStack, setUndoStack] = useState<any[]>([]);
-  const [redoStack, setRedoStack] = useState<any[]>([]);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [currentFrame, setCurrentFrame] = useState(0);
+  // Infinite canvas state
+  const [zoom, setZoom] = useState<number>(1);
+  const [pan, setPan] = useState<Point>({ x: 0, y: 0 });
+  
+  // Scale conversion: 12 pixels = 1 foot (1 pixel = 1 inch)
+  const PIXELS_PER_FOOT: number = 12;
+  const PIXELS_PER_INCH: number = 1;
+  
+  const svgRef = useRef<SVGSVGElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  // Fetch project data
-  const { data: project, isLoading: projectLoading } = useQuery({
-    queryKey: ['project', projectId],
-    queryFn: async () => {
-      const response = await axios.get(`/projects/${projectId}`);
-      return response.data as Project;
-    },
-    enabled: !!projectId
-  });
+  const generateId = (): string => Math.random().toString(36).substr(2, 9);
 
-  // Auto-save mutation
-  const autoSaveMutation = useMutation({
-    mutationFn: async (data: any) => {
-      await axios.put(`/projects/${projectId}`, data);
-    },
-    onSuccess: () => {
-      console.log('Project auto-saved');
-    }
-  });
+  // Convert pixels to feet and inches
+  const pixelsToFeet = (pixels: number): FeetInches => {
+    const totalInches = pixels / PIXELS_PER_INCH;
+    const feet = Math.floor(totalInches / 12);
+    const inches = Math.round(totalInches % 12);
+    return { feet, inches, totalInches };
+  };
 
-  // Cabinet library
-  const cabinetLibrary = [
-    {
-      category: 'Base Cabinets',
-      items: [
-        { id: 'base-600', name: 'Base Cabinet 600mm', width: 600, height: 850, depth: 600, price: 299 },
-        { id: 'base-800', name: 'Base Cabinet 800mm', width: 800, height: 850, depth: 600, price: 349 },
-        { id: 'base-corner', name: 'Corner Base Cabinet', width: 900, height: 850, depth: 900, price: 449 },
-        { id: 'base-drawer', name: 'Base Drawer Unit', width: 600, height: 850, depth: 600, price: 399 },
-      ]
-    },
-    {
-      category: 'Wall Cabinets',
-      items: [
-        { id: 'wall-600', name: 'Wall Cabinet 600mm', width: 600, height: 700, depth: 350, price: 199 },
-        { id: 'wall-800', name: 'Wall Cabinet 800mm', width: 800, height: 700, depth: 350, price: 249 },
-        { id: 'wall-corner', name: 'Corner Wall Cabinet', width: 600, height: 700, depth: 600, price: 299 },
-        { id: 'wall-glass', name: 'Glass Door Cabinet', width: 600, height: 700, depth: 350, price: 349 },
-      ]
-    },
-    {
-      category: 'Tall Units',
-      items: [
-        { id: 'tall-pantry', name: 'Pantry Unit', width: 600, height: 2100, depth: 600, price: 599 },
-        { id: 'tall-oven', name: 'Oven Housing', width: 600, height: 2100, depth: 600, price: 499 },
-        { id: 'tall-fridge', name: 'Fridge Housing', width: 700, height: 2100, depth: 650, price: 549 },
-      ]
-    }
-  ];
+  // Format feet and inches for display
+  const formatFeetInches = (pixels: number): string => {
+    const { feet, inches } = pixelsToFeet(pixels);
+    if (feet === 0) return `${inches}"`;
+    if (inches === 0) return `${feet}'`;
+    return `${feet}' ${inches}"`;
+  };
 
-  // Appliance library
-  const applianceLibrary = [
-    {
-      category: 'Cooking',
-      items: [
-        { id: 'hob-gas', name: 'Gas Hob', width: 600, depth: 510, price: 399 },
-        { id: 'hob-induction', name: 'Induction Hob', width: 600, depth: 510, price: 599 },
-        { id: 'oven-single', name: 'Single Oven', width: 595, height: 595, depth: 550, price: 499 },
-        { id: 'oven-double', name: 'Double Oven', width: 595, height: 888, depth: 550, price: 799 },
-      ]
-    },
-    {
-      category: 'Refrigeration',
-      items: [
-        { id: 'fridge-integrated', name: 'Integrated Fridge', width: 595, height: 1770, depth: 550, price: 899 },
-        { id: 'fridge-american', name: 'American Fridge', width: 910, height: 1790, depth: 745, price: 1499 },
-      ]
-    },
-    {
-      category: 'Cleaning',
-      items: [
-        { id: 'dishwasher', name: 'Dishwasher', width: 598, height: 815, depth: 550, price: 449 },
-        { id: 'sink-single', name: 'Single Bowl Sink', width: 860, depth: 500, price: 299 },
-        { id: 'sink-double', name: 'Double Bowl Sink', width: 1160, depth: 500, price: 399 },
-      ]
-    }
-  ];
+  // Convert feet/inches input to pixels
+  const feetToPixels = (feet: number, inches: number = 0): number => {
+    return (feet * 12 + inches) * PIXELS_PER_INCH;
+  };
 
-  // Material options
-  const materials = [
-    { id: 'oak', name: 'Oak', type: 'wood', price: 50 },
-    { id: 'walnut', name: 'Walnut', type: 'wood', price: 80 },
-    { id: 'white-gloss', name: 'White Gloss', type: 'laminate', price: 30 },
-    { id: 'grey-matt', name: 'Grey Matt', type: 'laminate', price: 35 },
-    { id: 'marble', name: 'Marble', type: 'stone', price: 150 },
-    { id: 'granite', name: 'Granite', type: 'stone', price: 120 },
-    { id: 'quartz', name: 'Quartz', type: 'engineered', price: 100 },
-  ];
-
-  // Auto-save effect
-  useEffect(() => {
-    if (!project?.settings?.autoSave) return;
-
-    const saveTimer = setInterval(() => {
-      autoSaveMutation.mutate({
-        designElements,
-        updatedAt: new Date().toISOString()
-      });
-    }, 30000); // Save every 30 seconds
-
-    return () => clearInterval(saveTimer);
-  }, [designElements, project]);
-
-  // Keyboard shortcuts
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.ctrlKey || e.metaKey) {
-        switch (e.key) {
-          case 's':
-            e.preventDefault();
-            saveProject();
-            break;
-          case 'z':
-            e.preventDefault();
-            if (e.shiftKey) {
-              redo();
-            } else {
-              undo();
-            }
-            break;
-          case 'c':
-            e.preventDefault();
-            copyElement();
-            break;
-          case 'v':
-            e.preventDefault();
-            pasteElement();
-            break;
-          case 'd':
-            e.preventDefault();
-            duplicateElement();
-            break;
-        }
-      } else {
-        switch (e.key) {
-          case 'Delete':
-            deleteElement();
-            break;
-          case 'Escape':
-            setSelectedElement(null);
-            setSelectedTool('select');
-            break;
-          case '1':
-            setViewMode('3d');
-            break;
-          case '2':
-            setViewMode('2d');
-            break;
-          case 'q':
-            setSelectedTool('select');
-            break;
-          case 'w':
-            setSelectedTool('move');
-            break;
-          case 'e':
-            setSelectedTool('rotate');
-            break;
-          case 'r':
-            setSelectedTool('scale');
-            break;
-        }
-      }
+  // Convert screen coordinates to world coordinates
+  const screenToWorld = (screenX: number, screenY: number): Point => {
+    return {
+      x: (screenX - pan.x) / zoom,
+      y: (screenY - pan.y) / zoom
     };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedElement]);
-
-  // Project actions
-  const saveProject = async () => {
-    try {
-      await axios.put(`/projects/${projectId}`, {
-        designElements,
-        updatedAt: new Date().toISOString()
-      });
-      toast.success('Project saved successfully!');
-    } catch (error) {
-      toast.error('Failed to save project');
-    }
   };
 
-  const exportProject = () => {
-    // Implement export functionality
-    toast.success('Exporting project...');
-  };
-
-  const shareProject = () => {
-    setShowCollaboration(true);
-  };
-
-  // Element actions
-  const addElement = (element: any, category: string) => {
-    const newElement: DesignElement = {
-      id: `${element.id}-${Date.now()}`,
-      type: category as any,
-      name: element.name,
-      position: { x: 0, y: 0, z: 0 },
-      rotation: { x: 0, y: 0, z: 0 },
-      scale: { x: 1, y: 1, z: 1 },
-      price: element.price,
-      metadata: element
+  // Convert world coordinates to screen coordinates
+  const worldToScreen = (worldX: number, worldY: number): Point => {
+    return {
+      x: worldX * zoom + pan.x,
+      y: worldY * zoom + pan.y
     };
+  };
 
-    setDesignElements(prev => [...prev, newElement]);
-    setSelectedElement(newElement);
+  const addDoor = useCallback((): void => {
+    const centerX = (400 - pan.x) / zoom;
+    const centerY = (300 - pan.y) / zoom;
     
-    // Add to undo stack
-    setUndoStack(prev => [...prev, { action: 'add', element: newElement }]);
-    setRedoStack([]);
+    const newDoor: Door = {
+      id: generateId(),
+      type: 'door',
+      x: centerX,
+      y: centerY,
+      width: feetToPixels(3, 0), // 3 feet standard door width
+      height: feetToPixels(0, 6), // 6 inches wall thickness
+      rotation: 0,
+      doorType: 'swing-right'
+    };
+    
+    setObjects(prev => [...prev, newDoor]);
+    setSelectedId(newDoor.id);
+  }, [pan.x, pan.y, zoom]);
+
+  const addWindow = useCallback((): void => {
+    const centerX = (400 - pan.x) / zoom;
+    const centerY = (300 - pan.y) / zoom;
+    
+    const newWindow: Window = {
+      id: generateId(),
+      type: 'window',
+      x: centerX,
+      y: centerY,
+      width: feetToPixels(4, 0), // 4 feet standard window width
+      height: feetToPixels(0, 6), // 6 inches wall thickness
+      rotation: 0
+    };
+    
+    setObjects(prev => [...prev, newWindow]);
+    setSelectedId(newWindow.id);
+  }, [pan.x, pan.y, zoom]);
+
+  const deleteSelected = (): void => {
+    if (selectedId) {
+      setObjects(prev => prev.filter(obj => obj.id !== selectedId));
+      setSelectedId(null);
+    }
   };
 
-  const updateElement = (elementId: string, updates: Partial<DesignElement>) => {
-    setDesignElements(prev => prev.map(el => 
-      el.id === elementId ? { ...el, ...updates } : el
+  const clearCanvas = (): void => {
+    setObjects([]);
+    setSelectedId(null);
+  };
+
+  const updateObject = (id: string, updates: Partial<Omit<DesignObject, 'id' | 'type'>>): void => {
+    setObjects(prev => prev.map(obj => 
+      obj.id === id ? { ...obj, ...updates } as DesignObject : obj
     ));
+  };
+
+  const handleWheel = (e: React.WheelEvent<SVGSVGElement>): void => {
+    e.preventDefault();
+    if (!containerRef.current) return;
     
-    // Update selected element if it's the one being modified
-    if (selectedElement?.id === elementId) {
-      setSelectedElement(prev => prev ? { ...prev, ...updates } : null);
+    const rect = containerRef.current.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+    
+    const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
+    const newZoom = Math.max(0.1, Math.min(5, zoom * zoomFactor));
+    
+    // Zoom towards mouse position
+    const zoomRatio = newZoom / zoom;
+    setPan(prev => ({
+      x: mouseX - (mouseX - prev.x) * zoomRatio,
+      y: mouseY - (mouseY - prev.y) * zoomRatio
+    }));
+    
+    setZoom(newZoom);
+  };
+
+  const handleMouseDown = (e: React.MouseEvent<SVGSVGElement>): void => {
+    if (!svgRef.current) return;
+    
+    const rect = svgRef.current.getBoundingClientRect();
+    const screenX = e.clientX - rect.left;
+    const screenY = e.clientY - rect.top;
+    const worldPos = screenToWorld(screenX, screenY);
+
+    if (e.button === 1 || (e.button === 0 && e.ctrlKey)) { // Middle mouse or Ctrl+Left
+      e.preventDefault();
+      setIsPanning(true);
+      setPanStart({ x: screenX - pan.x, y: screenY - pan.y });
+      return;
+    }
+
+    if (selectedTool === 'wall') {
+      setIsDrawing(true);
+      setStartPoint(worldPos);
+      setCurrentLine({ x1: worldPos.x, y1: worldPos.y, x2: worldPos.x, y2: worldPos.y });
+    } else if (selectedTool === 'select') {
+      setSelectedId(null);
     }
   };
 
-  const deleteElement = () => {
-    if (!selectedElement) return;
-
-    setDesignElements(prev => prev.filter(el => el.id !== selectedElement.id));
-    setUndoStack(prev => [...prev, { action: 'delete', element: selectedElement }]);
-    setRedoStack([]);
-    setSelectedElement(null);
+  const handleObjectMouseDown = (e: React.MouseEvent, objectId: string): void => {
+    e.stopPropagation();
+    if (selectedTool === 'select' && svgRef.current) {
+      setSelectedId(objectId);
+      const rect = svgRef.current.getBoundingClientRect();
+      const screenX = e.clientX - rect.left;
+      const screenY = e.clientY - rect.top;
+      const worldPos = screenToWorld(screenX, screenY);
+      const obj = objects.find(o => o.id === objectId);
+      if (obj && obj.type !== 'wall') {
+        const positionedObj = obj as Door | Window;
+        setDragStart({
+          x: worldPos.x - positionedObj.x,
+          y: worldPos.y - positionedObj.y,
+          objectId
+        });
+      }
+    }
   };
 
-  const copyElement = () => {
-    if (!selectedElement) return;
-    localStorage.setItem('copiedElement', JSON.stringify(selectedElement));
-    toast.success('Element copied');
+  const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>): void => {
+    if (!svgRef.current) return;
+    
+    const rect = svgRef.current.getBoundingClientRect();
+    const screenX = e.clientX - rect.left;
+    const screenY = e.clientY - rect.top;
+    const worldPos = screenToWorld(screenX, screenY);
+
+    if (isPanning && panStart) {
+      setPan({
+        x: screenX - panStart.x,
+        y: screenY - panStart.y
+      });
+      return;
+    }
+
+    if (selectedTool === 'wall' && isDrawing && startPoint) {
+      setCurrentLine({ x1: startPoint.x, y1: startPoint.y, x2: worldPos.x, y2: worldPos.y });
+    } else if (dragStart && selectedTool === 'select') {
+      const obj = objects.find(o => o.id === dragStart.objectId);
+      if (obj && obj.type !== 'wall') {
+        updateObject(dragStart.objectId, {
+          x: worldPos.x - dragStart.x,
+          y: worldPos.y - dragStart.y
+        });
+      }
+    }
   };
 
-  const pasteElement = () => {
-    const copied = localStorage.getItem('copiedElement');
-    if (!copied) return;
+  const handleMouseUp = (e: React.MouseEvent<SVGSVGElement>): void => {
+    if (isPanning) {
+      setIsPanning(false);
+      setPanStart(null);
+      return;
+    }
 
-    const element = JSON.parse(copied);
-    const newElement: DesignElement = {
-      ...element,
-      id: `${element.id}-copy-${Date.now()}`,
-      position: {
-        x: element.position.x + 100,
-        y: element.position.y,
-        z: element.position.z + 100
+    if (selectedTool === 'wall' && isDrawing && currentLine) {
+      const newWall: Wall = {
+        id: generateId(),
+        type: 'wall',
+        x1: currentLine.x1,
+        y1: currentLine.y1,
+        x2: currentLine.x2,
+        y2: currentLine.y2,
+        thickness: feetToPixels(0, 6) // 6 inches standard wall thickness
+      };
+      setObjects(prev => [...prev, newWall]);
+      setSelectedId(newWall.id);
+    }
+    
+    setIsDrawing(false);
+    setStartPoint(null);
+    setCurrentLine(null);
+    setDragStart(null);
+  };
+
+  const resetView = (): void => {
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+  };
+
+  const zoomIn = (): void => {
+    setZoom(prev => Math.min(5, prev * 1.2));
+  };
+
+  const zoomOut = (): void => {
+    setZoom(prev => Math.max(0.1, prev / 1.2));
+  };
+
+  const exportAsImage = (): void => {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    
+    canvas.width = 800;
+    canvas.height = 600;
+    
+    // Fill background
+    ctx.fillStyle = backgroundColor;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Create a temporary SVG with current view
+    const tempSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    tempSvg.setAttribute('width', '800');
+    tempSvg.setAttribute('height', '600');
+    tempSvg.setAttribute('viewBox', '0 0 800 600');
+    
+    // Add grid background
+    const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+    const pattern = document.createElementNS('http://www.w3.org/2000/svg', 'pattern');
+    pattern.setAttribute('id', 'exportGrid');
+    pattern.setAttribute('width', String(PIXELS_PER_FOOT * zoom));
+    pattern.setAttribute('height', String(PIXELS_PER_FOOT * zoom));
+    pattern.setAttribute('patternUnits', 'userSpaceOnUse');
+    pattern.setAttribute('x', String(pan.x % (PIXELS_PER_FOOT * zoom)));
+    pattern.setAttribute('y', String(pan.y % (PIXELS_PER_FOOT * zoom)));
+    
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', `M ${PIXELS_PER_FOOT * zoom} 0 L 0 0 0 ${PIXELS_PER_FOOT * zoom}`);
+    path.setAttribute('fill', 'none');
+    path.setAttribute('stroke', '#f0f0f0');
+    path.setAttribute('stroke-width', '1');
+    
+    pattern.appendChild(path);
+    defs.appendChild(pattern);
+    tempSvg.appendChild(defs);
+    
+    const bgRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    bgRect.setAttribute('width', '100%');
+    bgRect.setAttribute('height', '100%');
+    bgRect.setAttribute('fill', 'url(#exportGrid)');
+    tempSvg.appendChild(bgRect);
+    
+    // Add transformed group
+    const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    group.setAttribute('transform', `translate(${pan.x}, ${pan.y}) scale(${zoom})`);
+    
+    // Add all objects
+    objects.forEach(obj => {
+      const element = createSVGElement(obj);
+      if (element) group.appendChild(element);
+    });
+    
+    tempSvg.appendChild(group);
+    
+    // Convert to image
+    const svgString = new XMLSerializer().serializeToString(tempSvg);
+    const img = new Image();
+    const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(svgBlob);
+    
+    img.onload = () => {
+      ctx.drawImage(img, 0, 0);
+      const link = document.createElement('a');
+      link.download = 'floor-plan.png';
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+      URL.revokeObjectURL(url);
+    };
+    img.src = url;
+  };
+
+  const createSVGElement = (obj: DesignObject): SVGElement | null => {
+    const ns = 'http://www.w3.org/2000/svg';
+    
+    switch (obj.type) {
+      case 'wall':
+        const line = document.createElementNS(ns, 'line');
+        line.setAttribute('x1', String(obj.x1));
+        line.setAttribute('y1', String(obj.y1));
+        line.setAttribute('x2', String(obj.x2));
+        line.setAttribute('y2', String(obj.y2));
+        line.setAttribute('stroke', '#333');
+        line.setAttribute('stroke-width', String(obj.thickness / zoom));
+        line.setAttribute('stroke-linecap', 'round');
+        
+        // Add dimension text
+        const wallLengthPixels = Math.sqrt(Math.pow(obj.x2 - obj.x1, 2) + Math.pow(obj.y2 - obj.y1, 2));
+        const wallLengthFormatted = formatFeetInches(wallLengthPixels);
+        const wallThicknessFormatted = formatFeetInches(obj.thickness);
+        
+        const midX = (obj.x1 + obj.x2) / 2;
+        const midY = (obj.y1 + obj.y2) / 2;
+        const wallAngle = Math.atan2(obj.y2 - obj.y1, obj.x2 - obj.x1);
+        const perpAngle = wallAngle + Math.PI / 2;
+        const textOffset = 20 / zoom;
+        const textX = midX + Math.cos(perpAngle) * textOffset;
+        const textY = midY + Math.sin(perpAngle) * textOffset;
+        
+        const group = document.createElementNS(ns, 'g');
+        group.appendChild(line);
+        
+        const text = document.createElementNS(ns, 'text');
+        text.setAttribute('x', String(textX));
+        text.setAttribute('y', String(textY));
+        text.setAttribute('font-size', String(12 / zoom));
+        text.setAttribute('fill', '#666');
+        text.setAttribute('text-anchor', 'middle');
+        text.setAttribute('dominant-baseline', 'middle');
+        text.setAttribute('transform', `rotate(${wallAngle * 180 / Math.PI}, ${textX}, ${textY})`);
+        text.textContent = `L: ${wallLengthFormatted} | T: ${wallThicknessFormatted}`;
+        group.appendChild(text);
+        
+        return group;
+        
+      case 'door':
+        const doorGroup = document.createElementNS(ns, 'g');
+        doorGroup.setAttribute('transform', `translate(${obj.x}, ${obj.y}) rotate(${obj.rotation}) scale(${1/zoom})`);
+        
+        const doorRect = document.createElementNS(ns, 'rect');
+        doorRect.setAttribute('width', String(obj.width));
+        doorRect.setAttribute('height', String(obj.height));
+        doorRect.setAttribute('fill', '#8B4513');
+        doorRect.setAttribute('stroke', '#654321');
+        doorRect.setAttribute('stroke-width', '1');
+        doorGroup.appendChild(doorRect);
+        
+        return doorGroup;
+        
+      case 'window':
+        const windowGroup = document.createElementNS(ns, 'g');
+        windowGroup.setAttribute('transform', `translate(${obj.x}, ${obj.y}) rotate(${obj.rotation}) scale(${1/zoom})`);
+        
+        const windowRect = document.createElementNS(ns, 'rect');
+        windowRect.setAttribute('width', String(obj.width));
+        windowRect.setAttribute('height', String(obj.height));
+        windowRect.setAttribute('fill', '#E6F3FF');
+        windowRect.setAttribute('stroke', '#4A90E2');
+        windowRect.setAttribute('stroke-width', '2');
+        windowGroup.appendChild(windowRect);
+        
+        return windowGroup;
+        
+      default:
+        return null;
+    }
+  };
+
+  const saveAsJSON = (): void => {
+    const designData: DesignData = {
+      objects,
+      zoom,
+      pan,
+      backgroundColor,
+      timestamp: new Date().toISOString(),
+      version: '1.0'
+    };
+    
+    const jsonString = JSON.stringify(designData, null, 2);
+    const blob = new Blob([jsonString], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    
+    const link = document.createElement('a');
+    link.download = 'floor-plan.json';
+    link.href = url;
+    link.click();
+    
+    URL.revokeObjectURL(url);
+  };
+
+  const loadFromJSON = (event: React.ChangeEvent<HTMLInputElement>): void => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = (e: ProgressEvent<FileReader>) => {
+      try {
+        const result = e.target?.result;
+        if (typeof result === 'string') {
+          const designData: DesignData = JSON.parse(result);
+          
+          if (designData.objects) {
+            setObjects(designData.objects);
+            setSelectedId(null);
+            
+            if (designData.zoom) setZoom(designData.zoom);
+            if (designData.pan) setPan(designData.pan);
+            if (designData.backgroundColor) setBackgroundColor(designData.backgroundColor);
+          }
+        }
+      } catch (error) {
+        alert('Error loading file: Invalid JSON format');
       }
     };
-
-    addElement(newElement, newElement.type);
+    reader.readAsText(file);
+    
+    // Reset file input
+    event.target.value = '';
   };
 
-  const duplicateElement = () => {
-    if (!selectedElement) return;
-
-    const newElement: DesignElement = {
-      ...selectedElement,
-      id: `${selectedElement.id}-dup-${Date.now()}`,
-      position: {
-        x: selectedElement.position.x + 100,
-        y: selectedElement.position.y,
-        z: selectedElement.position.z + 100
-      }
+  useEffect(() => {
+    const handleContextMenu = (e: Event) => {
+      e.preventDefault();
     };
+    
+    document.addEventListener('contextmenu', handleContextMenu);
+    return () => document.removeEventListener('contextmenu', handleContextMenu);
+  }, []);
 
-    addElement(newElement, newElement.type);
+  const renderObject = (obj: DesignObject): JSX.Element | null => {
+    const isSelected = obj.id === selectedId;
+    const selectionStyle = isSelected ? { stroke: '#007bff', strokeWidth: 2 / zoom, strokeDasharray: `${5/zoom},${5/zoom}` } : {};
+
+    switch (obj.type) {
+      case 'wall':
+        // Calculate wall length in pixels
+        const wallLengthPixels = Math.sqrt(
+          Math.pow(obj.x2 - obj.x1, 2) + Math.pow(obj.y2 - obj.y1, 2)
+        );
+        
+        // Convert to feet and inches
+        const wallLengthFormatted = formatFeetInches(wallLengthPixels);
+        const wallThicknessFormatted = formatFeetInches(obj.thickness);
+        
+        // Calculate midpoint for text positioning
+        const midX = (obj.x1 + obj.x2) / 2;
+        const midY = (obj.y1 + obj.y2) / 2;
+        
+        // Calculate perpendicular offset for text
+        const wallAngle = Math.atan2(obj.y2 - obj.y1, obj.x2 - obj.x1);
+        const perpAngle = wallAngle + Math.PI / 2;
+        const textOffset = 20 / zoom; // Scale offset with zoom
+        const textX = midX + Math.cos(perpAngle) * textOffset;
+        const textY = midY + Math.sin(perpAngle) * textOffset;
+        
+        return (
+          <g key={obj.id}>
+            <line
+              x1={obj.x1}
+              y1={obj.y1}
+              x2={obj.x2}
+              y2={obj.y2}
+              stroke="#333"
+              strokeWidth={obj.thickness / zoom}
+              strokeLinecap="round"
+              onMouseDown={(e) => handleObjectMouseDown(e, obj.id)}
+              style={{ cursor: selectedTool === 'select' ? 'move' : 'default' }}
+            />
+            {isSelected && (
+              <line
+                x1={obj.x1}
+                y1={obj.y1}
+                x2={obj.x2}
+                y2={obj.y2}
+                stroke="#007bff"
+                strokeWidth={(obj.thickness + 4) / zoom}
+                strokeDasharray={`${5/zoom},${5/zoom}`}
+                opacity={0.5}
+                style={{ pointerEvents: 'none' }}
+              />
+            )}
+            
+            {/* Wall dimensions text */}
+            <text
+              x={textX}
+              y={textY}
+              fontSize={12 / zoom}
+              fill="#666"
+              textAnchor="middle"
+              dominantBaseline="middle"
+              style={{ pointerEvents: 'none' }}
+              transform={`rotate(${wallAngle * 180 / Math.PI}, ${textX}, ${textY})`}
+            >
+              L: {wallLengthFormatted} | T: {wallThicknessFormatted}
+            </text>
+          </g>
+        );
+
+      case 'door':
+        const doorArcRadius = obj.width;
+        const doorScale = 1 / zoom;
+        
+        return (
+          <g key={obj.id} transform={`translate(${obj.x}, ${obj.y}) rotate(${obj.rotation}) scale(${doorScale})`}>
+            <rect
+              x={0}
+              y={0}
+              width={obj.width}
+              height={obj.height}
+              fill="#8B4513"
+              stroke="#654321"
+              strokeWidth={1}
+              onMouseDown={(e) => handleObjectMouseDown(e, obj.id)}
+              style={{ cursor: selectedTool === 'select' ? 'move' : 'default' }}
+            />
+            
+            <path
+              d={`M ${obj.doorType === 'swing-right' ? 0 : obj.width} ${obj.height/2} 
+                  A ${doorArcRadius} ${doorArcRadius} 0 0 ${obj.doorType === 'swing-right' ? 1 : 0} 
+                  ${obj.doorType === 'swing-right' ? doorArcRadius : obj.width - doorArcRadius} ${obj.height/2 + doorArcRadius}`}
+              fill="none"
+              stroke="#666"
+              strokeWidth={1}
+              strokeDasharray="3,3"
+              style={{ pointerEvents: 'none' }}
+            />
+            
+            <line
+              x1={obj.doorType === 'swing-right' ? 0 : obj.width}
+              y1={obj.height/2}
+              x2={obj.doorType === 'swing-right' ? obj.width * 0.7 : obj.width * 0.3}
+              y2={obj.height/2 + obj.width * 0.7}
+              stroke="#8B4513"
+              strokeWidth={2}
+              style={{ pointerEvents: 'none' }}
+            />
+            
+            {isSelected && (
+              <rect
+                x={-2}
+                y={-2}
+                width={obj.width + 4}
+                height={obj.height + 4}
+                fill="none"
+                {...selectionStyle}
+                style={{ pointerEvents: 'none' }}
+                transform={`scale(${zoom})`}
+              />
+            )}
+          </g>
+        );
+
+      case 'window':
+        const windowScale = 1 / zoom;
+        
+        return (
+          <g key={obj.id} transform={`translate(${obj.x}, ${obj.y}) rotate(${obj.rotation}) scale(${windowScale})`}>
+            <rect
+              x={0}
+              y={0}
+              width={obj.width}
+              height={obj.height}
+              fill="#E6F3FF"
+              stroke="#4A90E2"
+              strokeWidth={2}
+              onMouseDown={(e) => handleObjectMouseDown(e, obj.id)}
+              style={{ cursor: selectedTool === 'select' ? 'move' : 'default' }}
+            />
+            
+            <line
+              x1={obj.width/2}
+              y1={0}
+              x2={obj.width/2}
+              y2={obj.height}
+              stroke="#4A90E2"
+              strokeWidth={1}
+              style={{ pointerEvents: 'none' }}
+            />
+            
+            <line
+              x1={0}
+              y1={obj.height/2}
+              x2={obj.width}
+              y2={obj.height/2}
+              stroke="#4A90E2"
+              strokeWidth={1}
+              style={{ pointerEvents: 'none' }}
+            />
+            
+            {isSelected && (
+              <rect
+                x={-2}
+                y={-2}
+                width={obj.width + 4}
+                height={obj.height + 4}
+                fill="none"
+                {...selectionStyle}
+                style={{ pointerEvents: 'none' }}
+                transform={`scale(${zoom})`}
+              />
+            )}
+          </g>
+        );
+
+      default:
+        return null;
+    }
   };
 
-  // Undo/Redo
-  const undo = () => {
-    if (undoStack.length === 0) return;
-
-    const lastAction = undoStack[undoStack.length - 1];
-    setUndoStack(prev => prev.slice(0, -1));
-    setRedoStack(prev => [...prev, lastAction]);
-
-    // Implement undo logic based on action type
+  const getSelectedObject = (): DesignObject | undefined => {
+    return selectedId ? objects.find(obj => obj.id === selectedId) : undefined;
   };
-
-  const redo = () => {
-    if (redoStack.length === 0) return;
-
-    const lastAction = redoStack[redoStack.length - 1];
-    setRedoStack(prev => prev.slice(0, -1));
-    setUndoStack(prev => [...prev, lastAction]);
-
-    // Implement redo logic based on action type
-  };
-
-  // Calculate total cost
-  const calculateTotalCost = () => {
-    return designElements.reduce((total, element) => total + (element.price || 0), 0);
-  };
-
-  // Helper function to safely get position values
-  const getPositionValue = (axis: 'x' | 'y' | 'z') => {
-    return selectedElement?.position?.[axis] ?? 0;
-  };
-
-  // Helper function to safely get rotation values
-  const getRotationValue = (axis: 'x' | 'y' | 'z') => {
-    return selectedElement?.rotation?.[axis] ?? 0;
-  };
-
-  // Helper function to safely get scale values
-  const getScaleValue = (axis: 'x' | 'y' | 'z') => {
-    return selectedElement?.scale?.[axis] ?? 1;
-  };
-
-  if (projectLoading) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-      </div>
-    );
-  }
 
   return (
-    <div className="h-screen flex flex-col bg-gray-100">
-      {/* Header Toolbar */}
-      <div className="bg-white shadow-sm border-b border-gray-200 px-4 py-2">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <button
-              onClick={() => navigate('/app/projects')}
-              className="p-2 hover:bg-gray-100 rounded-lg"
-            >
-              <ChevronLeft className="h-5 w-5" />
-            </button>
-            
-            <div>
-              <h1 className="text-lg font-semibold text-gray-900">{project?.name}</h1>
-              <p className="text-sm text-gray-500">Last saved: 2 minutes ago</p>
-            </div>
-
-            <div className="flex items-center space-x-1 border-l pl-4">
-              <button
-                onClick={() => setViewMode('2d')}
-                className={`px-3 py-1 rounded ${
-                  viewMode === '2d' ? 'bg-blue-100 text-blue-600' : 'text-gray-600 hover:bg-gray-100'
-                }`}
-              >
-                2D
-              </button>
-              {/* <button
-                onClick={() => setViewMode('3d')}
-                className={`px-3 py-1 rounded ${
-                  viewMode === '3d' ? 'bg-blue-100 text-blue-600' : 'text-gray-600 hover:bg-gray-100'
-                }`}
-              >
-                3D
-              </button> */}
-            </div>
-
-            <div className="flex items-center space-x-2 border-l pl-4">
-              <button
-                onClick={undo}
-                disabled={undoStack.length === 0}
-                className="p-2 hover:bg-gray-100 rounded disabled:opacity-50"
-                title="Undo (Ctrl+Z)"
-              >
-                <Undo className="h-4 w-4" />
-              </button>
-              <button
-                onClick={redo}
-                disabled={redoStack.length === 0}
-                className="p-2 hover:bg-gray-100 rounded disabled:opacity-50"
-                title="Redo (Ctrl+Shift+Z)"
-              >
-                <Redo className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={() => setShowAIChat(!showAIChat)}
-              className="px-3 py-1.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center space-x-2"
-            >
-              <HelpCircle className="h-4 w-4" />
-              <span>AI Assistant</span>
-            </button>
-            
-            <button
-              onClick={shareProject}
-              className="px-3 py-1.5 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center space-x-2"
-            >
-              <Share2 className="h-4 w-4" />
-              <span>Share</span>
-            </button>
-            
-            <button
-              onClick={exportProject}
-              className="px-3 py-1.5 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center space-x-2"
-            >
-              <Download className="h-4 w-4" />
-              <span>Export</span>
-            </button>
-            
-            <button
-              onClick={saveProject}
-              className="px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center space-x-2"
-            >
-              <Save className="h-4 w-4" />
-              <span>Save</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Main Content */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Left Panel - Library */}
-        {/* <AnimatePresence>
-          {showLeftPanel && (
-            <motion.div
-              initial={{ width: 0, opacity: 0 }}
-              animate={{ width: 280, opacity: 1 }}
-              exit={{ width: 0, opacity: 0 }}
-              className="bg-white border-r border-gray-200 overflow-y-auto"
-            >
-              <div className="p-4">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">Elements Library</h2>
-                
-                <div className="mb-6">
-                  <h3 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
-                    <Package className="h-4 w-4 mr-2" />
-                    Cabinets
-                  </h3>
-                  {cabinetLibrary.map((category) => (
-                    <div key={category.category} className="mb-4">
-                      <h4 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">
-                        {category.category}
-                      </h4>
-                      <div className="space-y-2">
-                        {category.items.map((item) => (
-                          <button
-                            key={item.id}
-                            onClick={() => addElement(item, 'cabinet')}
-                            className="w-full text-left p-2 rounded hover:bg-gray-50 text-sm"
-                            disabled={!project?.data?.walls || project.data.walls.length === 0} // <-- Disable if no walls
-                            title={!project?.data?.walls || project.data.walls.length === 0 ? "Draw walls first" : ""}
-                          >
-                            <div className="flex items-center justify-between">
-                              <span className="font-medium">{item.name}</span>
-                              <span className="text-gray-500">${item.price}</span>
-                            </div>
-                            <div className="text-xs text-gray-400">
-                              {item.width} × {item.height} × {item.depth}mm
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="mb-6">
-                  <h3 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
-                    <Box className="h-4 w-4 mr-2" />
-                    Appliances
-                  </h3>
-                  {applianceLibrary.map((category) => (
-                    <div key={category.category} className="mb-4">
-                      <h4 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">
-                        {category.category}
-                      </h4>
-                      <div className="space-y-2">
-                        {category.items.map((item) => (
-                          <button
-                            key={item.id}
-                            onClick={() => addElement(item, 'appliance')}
-                            className="w-full text-left p-2 rounded hover:bg-gray-50 text-sm"
-                          >
-                            <div className="flex items-center justify-between">
-                              <span className="font-medium">{item.name}</span>
-                              <span className="text-gray-500">${item.price}</span>
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-        {/* Toggle Left Panel Button */}
-        {/* <button
-          onClick={() => setShowLeftPanel(!showLeftPanel)}
-          className="absolute left-0 top-1/2 transform -translate-y-1/2 bg-white shadow-md rounded-r-lg p-2 z-10"
+    <div className="flex flex-col items-center p-6 bg-gray-100 min-h-screen">
+      <h1 className="text-3xl font-bold mb-6 text-gray-800">Infinite Floor Plan Designer</h1>
+      
+      {/* Toolbar */}
+      <div className="flex flex-wrap gap-2 mb-6 p-4 bg-white rounded-lg shadow-md">
+        {/* Tools */}
+        <button
+          onClick={() => setSelectedTool('select')}
+          className={`flex items-center gap-2 px-4 py-2 rounded transition-colors ${
+            selectedTool === 'select' 
+              ? 'bg-blue-600 text-white' 
+              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+          }`}
         >
-          {showLeftPanel ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-        </button> */}
-        <KitchenToolbar />
-
-        {/* Canvas Area */}
-        <div className="flex-1 relative">
-          {viewMode === '3d' ? (
-            <DesignerCanvas
-              selectedTool={selectedTool}
-              onObjectSelect={setSelectedElement as any}
-              showGrid={true}
-            />
-          ) : (
-            <Designer2DCanvas />
-          )}
-
-          {/* Tool Selection */}
-          {/* <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-white rounded-lg shadow-lg p-2 flex space-x-2">
-            <button
-              onClick={() => setSelectedTool('select')}
-              className={`p-2 rounded ${
-                selectedTool === 'select' ? 'bg-blue-100 text-blue-600' : 'hover:bg-gray-100'
-              }`}
-              title="Select (Q)"
-            >
-              <Box className="h-5 w-5" />
-            </button>
-            <button
-              onClick={() => setSelectedTool('move')}
-              className={`p-2 rounded ${
-                selectedTool === 'move' ? 'bg-blue-100 text-blue-600' : 'hover:bg-gray-100'
-              }`}
-              title="Move (W)"
-            >
-              <Move className="h-5 w-5" />
-            </button>
-            <button
-              onClick={() => setSelectedTool('rotate')}
-              className={`p-2 rounded ${
-                selectedTool === 'rotate' ? 'bg-blue-100 text-blue-600' : 'hover:bg-gray-100'
-              }`}
-              title="Rotate (E)"
-            >
-              <RefreshCw className="h-5 w-5" />
-            </button>
-            <button
-              onClick={() => setSelectedTool('scale')}
-              className={`p-2 rounded ${
-                selectedTool === 'scale' ? 'bg-blue-100 text-blue-600' : 'hover:bg-gray-100'
-              }`}
-              title="Scale (R)"
-            >
-              <Maximize2 className="h-5 w-5" />
-            </button>
-          </div> */}
-
-          {/* View Controls */}
-          {/* <div className="absolute bottom-4 left-4 bg-white rounded-lg shadow-lg p-2 flex flex-col space-y-2">
-            <button className="p-2 hover:bg-gray-100 rounded" title="Zoom In">
-              <ZoomIn className="h-5 w-5" />
-            </button>
-            <button className="p-2 hover:bg-gray-100 rounded" title="Zoom Out">
-              <ZoomOut className="h-5 w-5" />
-            </button>
-            <button className="p-2 hover:bg-gray-100 rounded" title="Reset View">
-              <RefreshCw className="h-5 w-5" />
-            </button>
-            <button className="p-2 hover:bg-gray-100 rounded" title="Screenshot">
-              <Camera className="h-5 w-5" />
-            </button>
-          </div> */}
-        </div>
-
-        {/* Right Panel - Properties */}
-        {/* <AnimatePresence>
-          {showRightPanel && (
-            <motion.div
-              initial={{ width: 0, opacity: 0 }}
-              animate={{ width: 320, opacity: 1 }}
-              exit={{ width: 0, opacity: 0 }}
-              className="bg-white border-l border-gray-200 overflow-y-auto"
-            >
-              <div className="p-4">
-                {selectedElement ? (
-                  <>
-                    <h2 className="text-lg font-semibold text-gray-900 mb-4">Properties</h2>
-                    
-                    <div className="mb-6">
-                      <h3 className="text-sm font-medium text-gray-700 mb-2">Element Info</h3>
-                      <div className="space-y-2">
-                        <div>
-                          <label className="text-xs text-gray-500">Name</label>
-                          <input
-                            type="text"
-                            value={selectedElement.name}
-                            onChange={(e) => updateElement(selectedElement.id, { name: e.target.value })}
-                            className="w-full px-3 py-1 border border-gray-300 rounded text-sm"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-xs text-gray-500">Type</label>
-                          <p className="text-sm font-medium capitalize">{selectedElement.type}</p>
-                        </div>
-                        {selectedElement.price && (
-                          <div>
-                            <label className="text-xs text-gray-500">Price</label>
-                            <p className="text-sm font-medium">${selectedElement.price}</p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="mb-6">
-                      <h3 className="text-sm font-medium text-gray-700 mb-2">Transform</h3>
-                      <div className="space-y-3">
-                        <div>
-                          <label className="text-xs text-gray-500">Position</label>
-                          <div className="grid grid-cols-3 gap-2">
-                            <input
-                              type="number"
-                              value={getPositionValue('x')}
-                              onChange={(e) => updateElement(selectedElement.id, {
-                                position: { 
-                                  ...selectedElement.position, 
-                                  x: parseFloat(e.target.value) || 0 
-                                }
-                              })}
-                              className="px-2 py-1 border border-gray-300 rounded text-sm"
-                              placeholder="X"
-                            />
-                            <input
-                              type="number"
-                              value={getPositionValue('y')}
-                              onChange={(e) => updateElement(selectedElement.id, {
-                                position: { 
-                                  ...selectedElement.position, 
-                                  y: parseFloat(e.target.value) || 0 
-                                }
-                              })}
-                              className="px-2 py-1 border border-gray-300 rounded text-sm"
-                              placeholder="Y"
-                            />
-                            <input
-                              type="number"
-                              value={getPositionValue('z')}
-                              onChange={(e) => updateElement(selectedElement.id, {
-                                position: { 
-                                  ...selectedElement.position, 
-                                  z: parseFloat(e.target.value) || 0 
-                                }
-                              })}
-                              className="px-2 py-1 border border-gray-300 rounded text-sm"
-                              placeholder="Z"
-                            />
-                          </div>
-                        </div>
-
-                        <div>
-                          <label className="text-xs text-gray-500">Rotation</label>
-                          <div className="grid grid-cols-3 gap-2">
-                            <input
-                              type="number"
-                              value={getRotationValue('x')}
-                              onChange={(e) => updateElement(selectedElement.id, {
-                                rotation: { 
-                                  ...selectedElement.rotation, 
-                                  x: parseFloat(e.target.value) || 0 
-                                }
-                              })}
-                              className="px-2 py-1 border border-gray-300 rounded text-sm"
-                              placeholder="X"
-                            />
-                            <input
-                              type="number"
-                              value={getRotationValue('y')}
-                              onChange={(e) => updateElement(selectedElement.id, {
-                                rotation: { 
-                                  ...selectedElement.rotation, 
-                                  y: parseFloat(e.target.value) || 0 
-                                }
-                              })}
-                              className="px-2 py-1 border border-gray-300 rounded text-sm"
-                              placeholder="Y"
-                            />
-                            <input
-                              type="number"
-                              value={getRotationValue('z')}
-                              onChange={(e) => updateElement(selectedElement.id, {
-                                rotation: { 
-                                  ...selectedElement.rotation, 
-                                  z: parseFloat(e.target.value) || 0 
-                                }
-                              })}
-                              className="px-2 py-1 border border-gray-300 rounded text-sm"
-                              placeholder="Z"
-                            />
-                          </div>
-                        </div>
-
-                        <div>
-                          <label className="text-xs text-gray-500">Scale</label>
-                          <div className="grid grid-cols-3 gap-2">
-                            <input
-                              type="number"
-                              value={getScaleValue('x')}
-                              onChange={(e) => updateElement(selectedElement.id, {
-                                scale: { 
-                                  ...selectedElement.scale, 
-                                  x: parseFloat(e.target.value) || 1 
-                                }
-                              })}
-                              className="px-2 py-1 border border-gray-300 rounded text-sm"
-                              placeholder="X"
-                              step="0.1"
-                            />
-                            <input
-                              type="number"
-                              value={getScaleValue('y')}
-                              onChange={(e) => updateElement(selectedElement.id, {
-                                scale: { 
-                                  ...selectedElement.scale, 
-                                  y: parseFloat(e.target.value) || 1 
-                                }
-                              })}
-                              className="px-2 py-1 border border-gray-300 rounded text-sm"
-                              placeholder="Y"
-                              step="0.1"
-                            />
-                            <input
-                              type="number"
-                              value={getScaleValue('z')}
-                              onChange={(e) => updateElement(selectedElement.id, {
-                                scale: { 
-                                  ...selectedElement.scale, 
-                                  z: parseFloat(e.target.value) || 1 
-                                }
-                              })}
-                              className="px-2 py-1 border border-gray-300 rounded text-sm"
-                              placeholder="Z"
-                              step="0.1"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="mb-6">
-                      <h3 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
-                        <Palette className="h-4 w-4 mr-2" />
-                        Materials
-                      </h3>
-                      <div className="grid grid-cols-2 gap-2">
-                        {materials.map((material) => (
-                          <button
-                            key={material.id}
-                            onClick={() => updateElement(selectedElement.id, { material: material.id })}
-                            className={`p-2 rounded border text-sm ${
-                              selectedElement.material === material.id
-                                ? 'border-blue-500 bg-blue-50'
-                                : 'border-gray-300 hover:bg-gray-50'
-                            }`}
-                          >
-                            <p className="font-medium">{material.name}</p>
-                            <p className="text-xs text-gray-500">+${material.price}</p>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="flex space-x-2">
-                      <button
-                        onClick={duplicateElement}
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded text-sm hover:bg-gray-50"
-                      >
-                        <Copy className="h-4 w-4 inline mr-1" />
-                        Duplicate
-                      </button>
-                      <button
-                        onClick={deleteElement}
-                        className="flex-1 px-3 py-2 border border-red-300 text-red-600 rounded text-sm hover:bg-red-50"
-                      >
-                        <Trash2 className="h-4 w-4 inline mr-1" />
-                        Delete
-                      </button>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <h2 className="text-lg font-semibold text-gray-900 mb-4">Project Overview</h2>
-                    
-                    <div className="space-y-4">
-                      <div className="bg-gray-50 rounded-lg p-4">
-                        <h3 className="text-sm font-medium text-gray-700 mb-2">Statistics</h3>
-                        <div className="space-y-2">
-                          <div className="flex justify-between">
-                            <span className="text-sm text-gray-500">Total Elements</span>
-                            <span className="text-sm font-medium">{designElements.length}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-sm text-gray-500">Total Cost</span>
-                            <span className="text-sm font-medium">${calculateTotalCost()}</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="bg-blue-50 rounded-lg p-4">
-                        <h3 className="text-sm font-medium text-blue-900 mb-1">Design Tips</h3>
-                        <p className="text-xs text-blue-700">
-                          Use the AI Assistant to get personalized suggestions for your kitchen layout.
-                        </p>
-                      </div>
-                    </div>
-                  </>
-                )}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence> */}
-
-        {/* Toggle Right Panel Button */}
-        {/* <button
-          onClick={() => setShowRightPanel(!showRightPanel)}
-          className="absolute right-0 top-1/2 transform -translate-y-1/2 bg-white shadow-md rounded-l-lg p-2 z-10"
+          <Move size={16} />
+          Select
+        </button>
+        
+        <button
+          onClick={() => setSelectedTool('wall')}
+          className={`flex items-center gap-2 px-4 py-2 rounded transition-colors ${
+            selectedTool === 'wall' 
+              ? 'bg-gray-600 text-white' 
+              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+          }`}
         >
-          {showRightPanel ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
-        </button> */}
+          <Minus size={16} />
+          Wall
+        </button>
+        
+        {/* Architectural Elements */}
+        <button
+          onClick={addDoor}
+          className="flex items-center gap-2 px-4 py-2 bg-amber-500 text-white rounded hover:bg-amber-600 transition-colors"
+        >
+          <Square size={16} />
+          Door
+        </button>
+        
+        <button
+          onClick={addWindow}
+          className="flex items-center gap-2 px-4 py-2 bg-sky-500 text-white rounded hover:bg-sky-600 transition-colors"
+        >
+          <Home size={16} />
+          Window
+        </button>
+        
+        {/* Zoom Controls */}
+        <div className="flex items-center gap-1 ml-4 border-l pl-4">
+          <button
+            onClick={zoomIn}
+            className="flex items-center gap-1 px-3 py-2 bg-indigo-500 text-white rounded hover:bg-indigo-600 transition-colors"
+          >
+            <ZoomIn size={16} />
+          </button>
+          
+          <span className="px-2 py-1 bg-gray-100 rounded text-sm min-w-16 text-center">
+            {Math.round(zoom * 100)}%
+          </span>
+          
+          <button
+            onClick={zoomOut}
+            className="flex items-center gap-1 px-3 py-2 bg-indigo-500 text-white rounded hover:bg-indigo-600 transition-colors"
+          >
+            <ZoomOut size={16} />
+          </button>
+          
+          <button
+            onClick={resetView}
+            className="flex items-center gap-1 px-3 py-2 bg-indigo-500 text-white rounded hover:bg-indigo-600 transition-colors"
+          >
+            <RotateCcw size={16} />
+          </button>
+        </div>
+        
+        {/* File Operations */}
+        <div className="flex items-center gap-2 ml-4 border-l pl-4">
+          <input
+            type="file"
+            accept=".json"
+            onChange={loadFromJSON}
+            className="hidden"
+            id="json-upload"
+          />
+          <label
+            htmlFor="json-upload"
+            className="flex items-center gap-2 px-4 py-2 bg-purple-500 text-white rounded hover:bg-purple-600 transition-colors cursor-pointer"
+          >
+            📁 Load JSON
+          </label>
+          
+          <button
+            onClick={saveAsJSON}
+            className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
+          >
+            💾 Save JSON
+          </button>
+          
+          <button
+            onClick={exportAsImage}
+            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
+          >
+            <Download size={16} />
+            Export PNG
+          </button>
+        </div>
+        
+        {/* Utility Tools */}
+        <button
+          onClick={deleteSelected}
+          className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+          disabled={!selectedId}
+        >
+          <Trash2 size={16} />
+          Delete
+        </button>
+        
+        <button
+          onClick={clearCanvas}
+          className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors"
+        >
+          Clear All
+        </button>
       </div>
-
-      {/* AI Chat */}
-      {showAIChat && (
-        <AIChat
-          projectId={projectId}
-          setShowAIChat={setShowAIChat}
-          context={{ designElements, project }}
-          onSuggestionApply={(suggestion) => {
-            console.log('Applying AI suggestion:', suggestion);
-          }}
-        />
-      )}
-
-      {/* Collaboration Panel */}
-      {showCollaboration && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg w-[800px] h-[600px] flex flex-col">
-            <div className="flex items-center justify-between p-4 border-b">
-              <h2 className="text-lg font-semibold">Collaboration</h2>
-              <button
-                onClick={() => setShowCollaboration(false)}
-                className="p-2 hover:bg-gray-100 rounded"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <div className="flex-1">
-              <CollaborationPanel
-                projectId={projectId!}
-                currentUser={{
-                  id: user?.id?.toString() || '',
-                  name: `${user?.firstName} ${user?.lastName}`,
-                  email: user?.email || '',
-                  avatar: `https://ui-avatars.com/api/?name=${user?.firstName}+${user?.lastName}&background=3B82F6&color=fff`,
-                  status: 'online',
-                  role: 'owner'
-                }}
+      
+      {/* Canvas */}
+      <div 
+        ref={containerRef}
+        className="border-2 border-gray-300 rounded-lg shadow-lg bg-white overflow-hidden"
+        style={{ width: '800px', height: '600px' }}
+      >
+        <svg
+          ref={svgRef}
+          width="800"
+          height="600"
+          onWheel={handleWheel}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
+          className={`${selectedTool === 'wall' ? 'cursor-crosshair' : 'cursor-default'} ${isPanning ? 'cursor-move' : ''}`}
+          style={{ userSelect: 'none' }}
+        >
+          {/* Infinite grid pattern */}
+          <defs>
+            <pattern 
+              id="grid" 
+              width={PIXELS_PER_FOOT * zoom} 
+              height={PIXELS_PER_FOOT * zoom} 
+              patternUnits="userSpaceOnUse"
+              x={pan.x % (PIXELS_PER_FOOT * zoom)}
+              y={pan.y % (PIXELS_PER_FOOT * zoom)}
+            >
+              <path 
+                d={`M ${PIXELS_PER_FOOT * zoom} 0 L 0 0 0 ${PIXELS_PER_FOOT * zoom}`} 
+                fill="none" 
+                stroke="#f0f0f0" 
+                strokeWidth={1}
               />
-            </div>
+            </pattern>
+          </defs>
+          <rect width="100%" height="100%" fill="url(#grid)" />
+          
+          <g transform={`translate(${pan.x}, ${pan.y}) scale(${zoom})`}>
+            {objects.map(renderObject)}
+            
+            {/* Current wall being drawn */}
+            {selectedTool === 'wall' && currentLine && (
+              <line
+                x1={currentLine.x1}
+                y1={currentLine.y1}
+                x2={currentLine.x2}
+                y2={currentLine.y2}
+                stroke="#666"
+                strokeWidth={8 / zoom}
+                strokeDasharray={`${5/zoom},${5/zoom}`}
+                opacity={0.7}
+                style={{ pointerEvents: 'none' }}
+              />
+            )}
+          </g>
+        </svg>
+      </div>
+      
+      {/* Selected Object Properties */}
+      {selectedId && (
+        <div className="mt-4 p-4 bg-white rounded-lg shadow-md">
+          <h3 className="text-lg font-semibold mb-2">Selected Object Properties</h3>
+          <div className="flex gap-4 items-center">
+            {(() => {
+              const selectedObj = getSelectedObject();
+              if (!selectedObj) return null;
+              
+              if (selectedObj.type === 'wall') {
+                return (
+                  <label className="flex items-center gap-2">
+                    Wall Thickness:
+                    <input
+                      type="range"
+                      min={feetToPixels(0, 2)} // 2 inches minimum
+                      max={feetToPixels(1, 0)} // 12 inches maximum
+                      step="1"
+                      value={selectedObj.thickness}
+                      onChange={(e) => updateObject(selectedId, { thickness: parseInt(e.target.value) })}
+                      className="w-32"
+                    />
+                    <span className="text-sm min-w-12">
+                      {formatFeetInches(selectedObj.thickness)}
+                    </span>
+                  </label>
+                );
+              }
+              
+              if (selectedObj.type === 'door') {
+                return (
+                  <>
+                    <label className="flex items-center gap-2">
+                      Door Type:
+                      <select
+                        value={selectedObj.doorType}
+                        onChange={(e) => updateObject(selectedId, { doorType: e.target.value as 'swing-right' | 'swing-left' })}
+                        className="px-2 py-1 border rounded"
+                      >
+                        <option value="swing-right">Swing Right</option>
+                        <option value="swing-left">Swing Left</option>
+                      </select>
+                    </label>
+                    <label className="flex items-center gap-2">
+                      Width:
+                      <input
+                        type="range"
+                        min={feetToPixels(2, 0)} // 2 feet minimum
+                        max={feetToPixels(5, 0)} // 5 feet maximum
+                        step="3" // 3 inches steps
+                        value={selectedObj.width}
+                        onChange={(e) => updateObject(selectedId, { width: parseInt(e.target.value) })}
+                        className="w-20"
+                      />
+                      <span className="text-sm min-w-12">
+                        {formatFeetInches(selectedObj.width)}
+                      </span>
+                    </label>
+                    <label className="flex items-center gap-2">
+                      Rotation:
+                      <input
+                        type="range"
+                        min="0"
+                        max="360"
+                        step="45"
+                        value={selectedObj.rotation}
+                        onChange={(e) => updateObject(selectedId, { rotation: parseInt(e.target.value) })}
+                        className="w-20"
+                      />
+                      <span className="text-sm">{selectedObj.rotation}°</span>
+                    </label>
+                  </>
+                );
+              }
+              
+              if (selectedObj.type === 'window') {
+                return (
+                  <>
+                    <label className="flex items-center gap-2">
+                      Width:
+                      <input
+                        type="range"
+                        min={feetToPixels(1, 0)} // 1 foot minimum
+                        max={feetToPixels(8, 0)} // 8 feet maximum
+                        step="6" // 6 inches steps
+                        value={selectedObj.width}
+                        onChange={(e) => updateObject(selectedId, { width: parseInt(e.target.value) })}
+                        className="w-20"
+                      />
+                      <span className="text-sm min-w-12">
+                        {formatFeetInches(selectedObj.width)}
+                      </span>
+                    </label>
+                    <label className="flex items-center gap-2">
+                      Rotation:
+                      <input
+                        type="range"
+                        min="0"
+                        max="360"
+                        step="45"
+                        value={selectedObj.rotation}
+                        onChange={(e) => updateObject(selectedId, { rotation: parseInt(e.target.value) })}
+                        className="w-20"
+                      />
+                      <span className="text-sm">{selectedObj.rotation}°</span>
+                    </label>
+                  </>
+                );
+              }
+              
+              return null;
+            })()}
           </div>
         </div>
       )}
-
-      {/* Instructions Overlay */}
-      <div className="absolute top-2 left-1/2 transform -translate-x-1/2 z-20">
-        {(!project?.data?.walls || project.data.walls.length === 0) ? (
-          <div className="bg-black bg-opacity-80 text-white px-4 py-2 rounded shadow">
-            Step 1: Draw your kitchen walls on the black canvas.
-          </div>
-        ) : (
-          <div className="bg-green-700 bg-opacity-80 text-white px-4 py-2 rounded shadow">
-            Step 2: Place kitchen modules inside the walls.
-          </div>
-        )}
+      
+      {/* Instructions */}
+      <div className="mt-6 p-4 bg-white rounded-lg shadow-md max-w-2xl">
+        <h3 className="text-lg font-semibold mb-2">Architectural Floor Plan Designer:</h3>
+        <ul className="text-sm text-gray-600 space-y-1">
+          <li>• <strong>Scale:</strong> 1 pixel = 1 inch (12 pixels = 1 foot)</li>
+          <li>• <strong>Grid:</strong> 1-foot grid squares for precise alignment</li>
+          <li>• <strong>Wall dimensions:</strong> Length and thickness shown in feet and inches (e.g., "8' 6\"", "6\"")</li>
+          <li>• <strong>Standard sizes:</strong> Doors: 3' wide, Windows: 4' wide, Walls: 6" thick</li>
+          <li>• <strong>Wall thickness:</strong> Adjustable from 2" to 12" using the properties panel</li>
+          <li>• <strong>Door/Window width:</strong> Adjustable in properties panel</li>
+          <li>• <strong>Mouse wheel:</strong> Zoom in/out</li>
+          <li>• <strong>Middle mouse drag:</strong> Pan around the infinite canvas</li>
+          <li>• <strong>Ctrl + Left mouse drag:</strong> Alternative pan method</li>
+          <li>• <strong>Save/Load:</strong> Save your design as JSON and load it back later</li>
+          <li>• <strong>Export PNG:</strong> Export current view as image file</li>
+        </ul>
       </div>
     </div>
   );
 };
 
-export default DesignerPage;
+export default ArchitecturalDesigner;

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { motion } from 'framer-motion';
-import { Mail, Lock, Eye, EyeOff, ArrowRight, Loader, Github } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, ArrowRight, Loader } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
 // OAuth icons (install react-icons: npm install react-icons)
