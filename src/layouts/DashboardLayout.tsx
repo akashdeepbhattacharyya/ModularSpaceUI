@@ -4,7 +4,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Home,
   Folder,
-  Palette,
   User,
   CreditCard,
   Settings,
@@ -36,7 +35,7 @@ const DashboardLayout: React.FC = () => {
     { name: 'Marketplace', href: '/app/marketplace', icon: ShoppingBag },
     { name: 'Profile', href: '/app/profile', icon: User },
     { name: 'Billing', href: '/app/billing', icon: CreditCard },
-    { name: 'API Keys', href: '/app/api-keys', icon: Key },
+    // { name: 'API Keys', href: '/app/api-keys', icon: Key },
     { name: 'Settings', href: '/app/settings', icon: Settings },
   ];
 
@@ -98,7 +97,7 @@ const DashboardLayout: React.FC = () => {
                     <p className="text-sm font-medium text-gray-700 group-hover:text-gray-900">
                       {user?.firstName} {user?.lastName}
                     </p>
-                    <p className="text-xs font-medium text-gray-500 group-hover:text-gray-700 flex items-center">
+                    <p className="text-xs font-medium text-gray-500 group-hover:text-gray-700 flex items-center" >
                       <LogOut className="h-3 w-3 mr-1" />
                       Sign out
                     </p>
@@ -198,7 +197,7 @@ const DashboardLayout: React.FC = () => {
 
         <main className="flex-1 relative overflow-y-auto focus:outline-none">
           <div className="py-6">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
+            <div className="max-w-full mx-auto px-4 sm:px-6 md:px-4">
               <Outlet />
             </div>
           </div>

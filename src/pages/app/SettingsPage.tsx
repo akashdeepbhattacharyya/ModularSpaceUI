@@ -69,9 +69,9 @@ const SettingsPage: React.FC = () => {
     { id: 'general', label: 'General', icon: Settings },
     { id: 'notifications', label: 'Notifications', icon: Bell },
     { id: 'appearance', label: 'Appearance', icon: Palette },
-    { id: 'performance', label: 'Performance', icon: Monitor },
-    { id: 'data', label: 'Data & Privacy', icon: Shield },
-    { id: 'integrations', label: 'Integrations', icon: Key },
+    // { id: 'performance', label: 'Performance', icon: Monitor },
+    // { id: 'data', label: 'Data & Privacy', icon: Shield },
+    // { id: 'integrations', label: 'Integrations', icon: Key },
   ];
 
   const onSubmit = async (data: SettingsFormData) => {
@@ -202,7 +202,7 @@ const SettingsPage: React.FC = () => {
                     </select>
                   </div>
 
-                  <div>
+                  {/* <div>
                     <label className="block text-sm font-medium text-gray-700">Measurement Units</label>
                     <select
                       {...register('measurementUnit')}
@@ -211,7 +211,7 @@ const SettingsPage: React.FC = () => {
                       <option value="imperial">Imperial (inches, feet)</option>
                       <option value="metric">Metric (cm, meters)</option>
                     </select>
-                  </div>
+                  </div> */}
                 </div>
               </div>
             </motion.div>

@@ -72,7 +72,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(response.data.data);
     } catch (error) {
       console.error('Failed to fetch user:', error);
-      // logout();
+      logout();
     } finally {
       setLoading(false);
     }
@@ -101,14 +101,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (email: string, password: string) => {
     try {
-      // const response = await axios.post('/auth/login', { email, password });
-      // const { accessToken, userId, firstName, lastName, role, subscriptionTier } = response.data.data;
-      const accessToken = 'token'; // Replace with actual access token
-      const userId = 1; // Replace with actual user ID
-      const firstName = 'John'; // Replace with actual first name
-      const lastName = 'Doe'; // Replace with actual last name
-      const role = 'USER'; // Replace with actual role
-      const subscriptionTier = 'PRO'; // Replace with actual subscription tier
+      const response = await axios.post('/auth/login', { email, password });
+      const { accessToken, userId, firstName, lastName, role, subscriptionTier } = response.data.data;
+      // const accessToken = 'token'; // Replace with actual access token
+      // const userId = 1; // Replace with actual user ID
+      // const firstName = 'John'; // Replace with actual first name
+      // const lastName = 'Doe'; // Replace with actual last name
+      // const role = 'USER'; // Replace with actual role
+      // const subscriptionTier = 'PRO'; // Replace with actual subscription tier
       setToken(accessToken);
 
       localStorage.setItem('token', accessToken);
@@ -177,13 +177,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = () => {
-    // setUser(null);
-    // setToken(null);
-    // localStorage.removeItem('token');
-    // localStorage.removeItem('oauth_redirect');
-    // delete axios.defaults.headers.common['Authorization'];
-    // toast.success('Logged out successfully');
-    // navigate('/');
+    setUser(null);
+    setToken(null);
+    localStorage.removeItem('token');
+    localStorage.removeItem('oauth_redirect');
+    delete axios.defaults.headers.common['Authorization'];
+    toast.success('Logged out successfully');
+    navigate('/');
   };
 
   return (

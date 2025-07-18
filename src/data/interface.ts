@@ -32,7 +32,7 @@ export interface Window extends BaseObject {
   rotation: number;
 }
 
-export type DesignObject = Wall | Door | Window | KitchenItem;;
+export type DesignObject = Wall | Door | Window | KitchenItem |Floor;
 
 export interface Point {
   x: number;
@@ -65,6 +65,16 @@ export interface FeetInches {
   feet: number;
   inches: number;
   totalInches: number;
+}
+
+export interface Floor extends BaseObject {
+  type: 'floor';
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation: number;
+  floorType: 'hardwood' | 'tile' | 'carpet' | 'laminate' | 'stone' | 'vinyl';
 }
 
 export type SelectedTool = 'select' | 'wall' | 'door' | 'window';

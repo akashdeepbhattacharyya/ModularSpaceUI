@@ -122,8 +122,8 @@ const ProfilePage: React.FC = () => {
     { id: 'general', label: 'General', icon: User },
     { id: 'security', label: 'Security', icon: Shield },
     { id: 'notifications', label: 'Notifications', icon: Bell },
-    { id: 'preferences', label: 'Preferences', icon: Palette },
-    { id: 'api', label: 'API Keys', icon: Key },
+    // { id: 'preferences', label: 'Preferences', icon: Palette },
+    // { id: 'api', label: 'API Keys', icon: Key },
   ];
 
   return (

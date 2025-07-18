@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { motion } from 'framer-motion';
-import { Eye, EyeOff, Mail, Lock, User, Phone, AlertCircle, Check } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, User, Phone, AlertCircle, Check, Users, ChevronDown } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
 interface RegisterFormData {
@@ -13,6 +13,7 @@ interface RegisterFormData {
   confirmPassword: string;
   phoneNumber?: string;
   agreeToTerms: boolean;
+  userType: string;
 }
 
 const RegisterPage: React.FC = () => {
@@ -152,23 +153,50 @@ const RegisterPage: React.FC = () => {
           )}
         </div>
 
-        <div>
-          <label htmlFor="phoneNumber" className="block text-sm font-medium text-gray-700">
-            Phone number (optional)
-          </label>
-          <div className="mt-1 relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Phone className="h-5 w-5 text-gray-400" />
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+          <div>
+            <label htmlFor="phoneNumber" className="block text-sm font-medium text-gray-700">
+              Phone number (optional)
+            </label>
+            <div className="mt-1 relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Phone className="h-5 w-5 text-gray-400" />
+              </div>
+              <input
+                {...registerForm('phoneNumber')}
+                type="tel"
+                autoComplete="tel"
+                className="appearance-none block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                placeholder="+1 (555) 123-4567"
+              />
             </div>
-            <input
-              {...registerForm('phoneNumber')}
-              type="tel"
-              autoComplete="tel"
-              className="appearance-none block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-              placeholder="+1 (555) 123-4567"
-            />
+          </div>
+          <div>
+            <label htmlFor="userType" className="block text-sm font-medium text-gray-700">
+              User Type
+            </label>
+            <div className="mt-1 relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Users className="h-5 w-5 text-gray-400" />
+              </div>
+              <select
+                {...registerForm('userType')}
+                className="appearance-none block w-full pl-10 pr-10 py-2 border border-gray-300 rounded-md shadow-sm bg-white text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                defaultValue=""
+              >
+                <option value="" disabled>
+                  Select user type
+                </option>
+              <option value="HOMEOWNER">Homeowner</option>
+                <option value="DESIGNER">Designer</option>
+              </select>
+              <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                <ChevronDown className="h-5 w-5 text-gray-400" />
+              </div>
+            </div>
           </div>
         </div>
+
 
         <div>
           <label htmlFor="password" className="block text-sm font-medium text-gray-700">
