@@ -864,61 +864,6 @@ const ArchitecturalDesigner: React.FC = () => {
           <div className="flex-1 flex justify-center items-center px-6 pb-6">
             {is3DView ? render3DCanvas() : render2DCanvas()}
           </div>
-          {/* <div
-            ref={containerRef}
-            className="border-2 border-gray-300 rounded-lg shadow-lg bg-white overflow-hidden"
-            style={{ width: '800px', height: '600px' }}
-          >
-            <svg
-              ref={svgRef}
-              width="800"
-              height="600"
-              onWheel={handleWheel}
-              onMouseDown={handleMouseDown}
-              onMouseMove={handleMouseMove}
-              onMouseUp={handleMouseUp}
-              onMouseLeave={handleMouseUp}
-              className={`${selectedTool === 'wall' ? 'cursor-crosshair' : 'cursor-default'} ${isPanning ? 'cursor-move' : ''}`}
-              style={{ userSelect: 'none' }}
-            >
-              <defs>
-                <pattern
-                  id="grid"
-                  width={PIXELS_PER_FOOT * zoom}
-                  height={PIXELS_PER_FOOT * zoom}
-                  patternUnits="userSpaceOnUse"
-                  x={pan.x % (PIXELS_PER_FOOT * zoom)}
-                  y={pan.y % (PIXELS_PER_FOOT * zoom)}
-                >
-                  <path
-                    d={`M ${PIXELS_PER_FOOT * zoom} 0 L 0 0 0 ${PIXELS_PER_FOOT * zoom}`}
-                    fill="none"
-                    stroke="#f0f0f0"
-                    strokeWidth={1}
-                  />
-                </pattern>
-              </defs>
-              <rect width="100%" height="100%" fill="url(#grid)" />
-
-              <g transform={`translate(${pan.x}, ${pan.y}) scale(${zoom})`}>
-                {objects.map(renderObject)}
-
-                {selectedTool === 'wall' && currentLine && (
-                  <line
-                    x1={currentLine.x1}
-                    y1={currentLine.y1}
-                    x2={currentLine.x2}
-                    y2={currentLine.y2}
-                    stroke="#666"
-                    strokeWidth={8 / zoom}
-                    strokeDasharray={`${5 / zoom},${5 / zoom}`}
-                    opacity={0.7}
-                    style={{ pointerEvents: 'none' }}
-                  />
-                )}
-              </g>
-            </svg>
-          </div> */}
         </div>
       </div>
       <Designer3DCanvas
