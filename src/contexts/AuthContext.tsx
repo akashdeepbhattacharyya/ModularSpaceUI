@@ -2,6 +2,8 @@ import React, { createContext, useState, useContext, useEffect } from 'react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useAppDispatch, useTokenCallBack } from '../store/hooks';
+import { fetchUserProfile } from '../slices/userSlice';
 
 interface User {
   id: number;
@@ -46,6 +48,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   const location = useLocation();
+  // const dispatch = useAppDispatch();
+  // const makeTokenCall = useTokenCallBack();
+
+  // const { user, loading, error } = useAppSelector(accountSlice);
 
   useEffect(() => {
     // Check for OAuth callback
@@ -60,6 +66,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       navigate('/auth/login');
     } else if (token) {
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      // dispatch(fetchUserProfile(token));
       fetchUser();
     } else {
       setLoading(false);
@@ -70,6 +77,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const response = await axios.get('/users/profile');
       setUser(response.data.data);
+      // console.log(makeTokenCall);
+      
     } catch (error) {
       console.error('Failed to fetch user:', error);
       logout();

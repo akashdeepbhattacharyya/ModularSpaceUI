@@ -17,6 +17,8 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useMutation } from '@tanstack/react-query';
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import { accountStateItem, fetchUserProfile, setUserDetails } from '../../slices/userSlice';
+import { useAppDispatch, useAppSelector, useTokenCallBack } from '../../store/hooks';
 
 interface ProfileFormData {
   firstName: string;
@@ -34,16 +36,19 @@ interface PasswordFormData {
 }
 
 const ProfilePage: React.FC = () => {
-  const { user, logout } = useAuth();
+  const { logout } = useAuth();
   const [activeTab, setActiveTab] = useState('general');
   const [profileImage, setProfileImage] = useState<string | null>(null);
+  const makeTokenCall = useTokenCallBack();
+  const dispatch = useAppDispatch();
+  const { getUserProfile } = useAppSelector(accountStateItem);
 
   const { register: registerProfile, handleSubmit: handleProfileSubmit, formState: { errors: profileErrors } } = useForm<ProfileFormData>({
     defaultValues: {
-      firstName: user?.firstName || '',
-      lastName: user?.lastName || '',
-      email: user?.email || '',
-      phoneNumber: ''
+      firstName: getUserProfile?.firstName || '',
+      lastName: getUserProfile?.lastName || '',
+      email: getUserProfile?.email || '',
+      phoneNumber: getUserProfile?.phoneNumber || '',
     }
   });
 
@@ -52,6 +57,8 @@ const ProfilePage: React.FC = () => {
   const updateProfileMutation = useMutation({
     mutationFn: async (data: ProfileFormData) => {
       const response = await axios.put('/users/profile', data);
+      // dispatch(fetchUserProfile({ token: makeTokenCall }))
+      dispatch(setUserDetails(response.data.data));
       return response.data;
     },
     onSuccess: () => {
@@ -121,7 +128,7 @@ const ProfilePage: React.FC = () => {
   const tabs = [
     { id: 'general', label: 'General', icon: User },
     { id: 'security', label: 'Security', icon: Shield },
-    { id: 'notifications', label: 'Notifications', icon: Bell },
+    // { id: 'notifications', label: 'Notifications', icon: Bell },
     // { id: 'preferences', label: 'Preferences', icon: Palette },
     // { id: 'api', label: 'API Keys', icon: Key },
   ];
@@ -141,11 +148,10 @@ const ProfilePage: React.FC = () => {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === tab.id
-                  ? 'text-blue-600 border-blue-600'
-                  : 'text-gray-500 border-transparent hover:text-gray-700'
-              }`}
+              className={`flex items-center px-6 py-4 text-sm font-medium border-b-2 transition-colors ${activeTab === tab.id
+                ? 'text-blue-600 border-blue-600'
+                : 'text-gray-500 border-transparent hover:text-gray-700'
+                }`}
             >
               <tab.icon className="h-4 w-4 mr-2" />
               {tab.label}
@@ -162,13 +168,13 @@ const ProfilePage: React.FC = () => {
             >
               <div>
                 <h3 className="text-lg font-medium text-gray-900 mb-4">Profile Information</h3>
-                
+
                 {/* Profile Image */}
                 <div className="mb-6 flex items-center">
                   <div className="relative">
                     <img
                       className="h-24 w-24 rounded-full object-cover"
-                      src={profileImage || `https://ui-avatars.com/api/?name=${user?.firstName}+${user?.lastName}&background=3B82F6&color=fff`}
+                      src={profileImage || `https://ui-avatars.com/api/?name=${getUserProfile?.firstName}+${getUserProfile?.lastName}&background=3B82F6&color=fff`}
                       alt="Profile"
                     />
                     <label
@@ -186,9 +192,9 @@ const ProfilePage: React.FC = () => {
                     </label>
                   </div>
                   <div className="ml-6">
-                    <p className="text-sm font-medium text-gray-900">{user?.firstName} {user?.lastName}</p>
-                    <p className="text-sm text-gray-500">{user?.role}</p>
-                    <p className="text-xs text-blue-600 mt-1">{user?.subscriptionTier} Plan</p>
+                    <p className="text-sm font-medium text-gray-900">{getUserProfile?.fullName} </p>
+                    <p className="text-sm text-gray-500">{getUserProfile?.role}</p>
+                    <p className="text-xs text-blue-600 mt-1">{getUserProfile?.subscriptionTier} Plan</p>
                   </div>
                 </div>
 
@@ -250,17 +256,6 @@ const ProfilePage: React.FC = () => {
                     <input
                       {...registerProfile('phoneNumber')}
                       type="tel"
-                      className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label htmlFor="company" className="block text-sm font-medium text-gray-700">
-                      Company (optional)
-                    </label>
-                    <input
-                      {...registerProfile('company')}
-                      type="text"
                       className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>

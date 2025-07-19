@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -19,12 +19,23 @@ import {
   ShoppingBag
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { useAppDispatch, useAppSelector, useTokenCallBack } from '../store/hooks';
+import { accountStateItem, fetchUserProfile } from '../slices/userSlice';
 
 const DashboardLayout: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const { user, logout } = useAuth();
+  const { logout } = useAuth();
   const location = useLocation();
+  const user: any = {}
+  const makeTokenCall = useTokenCallBack();
+  const dispatch = useAppDispatch();
 
+  const { getUserProfile } = useAppSelector(accountStateItem);
+  useEffect(() => {
+    dispatch(fetchUserProfile({ token: makeTokenCall }))
+  }, []);
+ 
+  
   const navigation = [
     { name: 'Dashboard', href: '/app/dashboard', icon: Home },
     { name: 'Projects', href: '/app/projects', icon: Folder },
@@ -51,29 +62,27 @@ const DashboardLayout: React.FC = () => {
               <div className="flex items-center flex-shrink-0 px-4">
                 <span className="text-2xl font-bold text-blue-600">ModularSpace</span>
               </div>
-              
+
               {/* User tier badge */}
               <div className="mx-4 mt-4 mb-2">
                 <div className="bg-gradient-to-r from-blue-500 to-purple-600 text-white text-xs font-semibold px-3 py-1 rounded-full text-center">
                   {user?.subscriptionTier || 'FREE'} PLAN
                 </div>
               </div>
-              
+
               <nav className="mt-5 flex-1 px-2 space-y-1">
                 {navigation.map((item) => (
                   <Link
                     key={item.name}
                     to={item.href}
-                    className={`${
-                      isActive(item.href)
-                        ? 'bg-blue-50 text-blue-700'
-                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                    } group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors`}
+                    className={`${isActive(item.href)
+                      ? 'bg-blue-50 text-blue-700'
+                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                      } group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors`}
                   >
                     <item.icon
-                      className={`${
-                        isActive(item.href) ? 'text-blue-600' : 'text-gray-400 group-hover:text-gray-500'
-                      } mr-3 flex-shrink-0 h-5 w-5`}
+                      className={`${isActive(item.href) ? 'text-blue-600' : 'text-gray-400 group-hover:text-gray-500'
+                        } mr-3 flex-shrink-0 h-5 w-5`}
                     />
                     {item.name}
                   </Link>
@@ -89,13 +98,13 @@ const DashboardLayout: React.FC = () => {
                   <div>
                     <img
                       className="inline-block h-9 w-9 rounded-full"
-                      src={`https://ui-avatars.com/api/?name=${user?.firstName}+${user?.lastName}&background=3B82F6&color=fff`}
+                      src={`https://ui-avatars.com/api/?name=${getUserProfile?.firstName}+${getUserProfile?.lastName}&background=3B82F6&color=fff`}
                       alt=""
                     />
                   </div>
                   <div className="ml-3">
                     <p className="text-sm font-medium text-gray-700 group-hover:text-gray-900">
-                      {user?.firstName} {user?.lastName}
+                      {getUserProfile?.firstName} {getUserProfile?.lastName}
                     </p>
                     <p className="text-xs font-medium text-gray-500 group-hover:text-gray-700 flex items-center" >
                       <LogOut className="h-3 w-3 mr-1" />
@@ -142,16 +151,14 @@ const DashboardLayout: React.FC = () => {
                       key={item.name}
                       to={item.href}
                       onClick={() => setIsSidebarOpen(false)}
-                      className={`${
-                        isActive(item.href)
-                          ? 'bg-blue-50 text-blue-700'
-                          : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                      } group flex items-center px-2 py-2 text-sm font-medium rounded-md`}
+                      className={`${isActive(item.href)
+                        ? 'bg-blue-50 text-blue-700'
+                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                        } group flex items-center px-2 py-2 text-sm font-medium rounded-md`}
                     >
                       <item.icon
-                        className={`${
-                          isActive(item.href) ? 'text-blue-600' : 'text-gray-400'
-                        } mr-3 h-5 w-5`}
+                        className={`${isActive(item.href) ? 'text-blue-600' : 'text-gray-400'
+                          } mr-3 h-5 w-5`}
                       />
                       {item.name}
                     </Link>

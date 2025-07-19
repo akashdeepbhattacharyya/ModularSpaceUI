@@ -6,7 +6,7 @@ import { AuthProvider } from './contexts/AuthContext';
 import { HelmetProvider } from 'react-helmet-async';
 import ProtectedRoute from './components/common/ProtectedRoute';
 import { Provider } from 'react-redux';
-import store from './store/store';
+import { store } from './store/store';
 import { TooltipProvider } from './components/ui/toolTip'; // <-- Import TooltipProvider
 
 // Loading component for Suspense fallback

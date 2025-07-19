@@ -1,9 +1,14 @@
-import { createStore, applyMiddleware, compose } from 'redux';
-import { thunk } from 'redux-thunk';
-import rootReducer from '../reducers/reducers';
+import { configureStore } from '@reduxjs/toolkit';
+import userReducer from '../slices/userSlice';
+import commonSlice from '../slices/commonSlice';
 
-const initialState = {};
+export const store = configureStore({
+  reducer: {
+    common: commonSlice,
+    user: userReducer,
+  },
+});
 
-const store = createStore(rootReducer, initialState, compose(applyMiddleware(thunk)));
-
-export default store;
+// Types for hooks and slices
+export type RootState = ReturnType<typeof store.getState>;
+export type AppDispatch = typeof store.dispatch;
