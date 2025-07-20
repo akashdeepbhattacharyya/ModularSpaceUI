@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { Trash2, Download, Move, Home, Square, Minus, ZoomIn, ZoomOut, RotateCcw, ChevronRight, ChevronDown, Grid3X3, Box } from 'lucide-react';
+import { Trash2, Download, Move, Home, Square, Minus, ZoomIn, ZoomOut, RotateCcw, ChevronRight, ChevronDown, Grid3X3, Box, X } from 'lucide-react';
 import { kitchenItems } from '../../data/data';
 import { CurrentLine, DesignObject, Door, DragStart, FeetInches, KitchenItem, Window, Point, SelectedTool, Wall, DesignData, UpdateableProperties } from '../../data/interface';
 import { KitchenSidePanel } from '../../components/designer/DesignerToolbar';
@@ -21,6 +21,10 @@ const ArchitecturalDesigner: React.FC = () => {
   const [showKitchenPanel, setShowKitchenPanel] = useState<boolean>(true);
   const [showRightPanel, setShowRightPanel] = useState<boolean>(true);
   const [is3DView, setIs3DView] = useState<boolean>(false);
+  const [wallCreationMode, setWallCreationMode] = useState<'draw' | 'custom'>('custom');
+  const [wallWidth, setWallWidth] = useState<number>(12);
+  const [wallHeight, setWallHeight] = useState<number>(10);
+  const [wallThickness, setWallThickness] = useState<number>(0.5);
 
   const [expandedCategories, setExpandedCategories] = useState<{ [key: string]: boolean }>({
     appliances: true,
@@ -634,6 +638,64 @@ const ArchitecturalDesigner: React.FC = () => {
     }
   };
 
+    const handleWallSubmit = () => {
+    const canvasWidth = containerRef.current?.offsetWidth || 800;
+    const canvasHeight = containerRef.current?.offsetHeight || 600;
+    const centerX = (canvasWidth / 2 - pan.x) / zoom;
+    const centerY = (canvasHeight / 2 - pan.y) / zoom;
+    
+    const roomWidth = feetToPixels(wallWidth);
+    const roomHeight = feetToPixels(wallHeight);
+    const thickness = feetToPixels(wallThickness);
+    
+    const left = centerX - roomWidth / 2;
+    const right = centerX + roomWidth / 2;
+    const top = centerY - roomHeight / 2;
+    const bottom = centerY + roomHeight / 2;
+    
+    const newWalls: Wall[] = [
+      {
+        id: generateId(),
+        type: 'wall',
+        x1: left, y1: top,
+        x2: right, y2: top,
+        thickness: thickness,
+        height: feetToPixels(wallHeight)
+      },
+      {
+        id: generateId(),
+        type: 'wall',
+        x1: right, y1: top,
+        x2: right, y2: bottom,
+        thickness: thickness,
+        height: feetToPixels(wallHeight)
+      },
+      {
+        id: generateId(),
+        type: 'wall',
+        x1: right, y1: bottom,
+        x2: left, y2: bottom,
+        thickness: thickness,
+        height: feetToPixels(wallHeight)
+      },
+      {
+        id: generateId(),
+        type: 'wall',
+        x1: left, y1: bottom,
+        x2: left, y2: top,
+        thickness: thickness,
+        height: feetToPixels(wallHeight)
+      }
+    ];
+    
+    setObjects(prev => [...prev, ...newWalls]);
+    setSelectedId(newWalls[0].id);
+    setSelectedTool('select');
+    
+    // Show success message
+    // showSuccessMessage(`Room created: ${wallWidth}' × ${wallHeight}' (4 walls)`);
+  };
+
   const render3DCanvas = () => (
     <div className="border-2 border-gray-300 rounded-lg shadow-lg bg-white overflow-hidden" style={{ width: '800px', height: '600px' }}>
       <ThreeDViewer
@@ -730,11 +792,10 @@ const ArchitecturalDesigner: React.FC = () => {
             </button>
             <button
               onClick={toggle3DView}
-              className={`flex items-center gap-2 px-4 py-2 rounded transition-colors ${
-                is3DView
+              className={`flex items-center gap-2 px-4 py-2 rounded transition-colors ${is3DView
                   ? 'bg-orange-600 text-white hover:bg-orange-700'
                   : 'bg-orange-500 text-white hover:bg-orange-600'
-              }`}
+                }`}
             >
               {is3DView ? <Grid3X3 size={16} /> : <Box size={16} />}
               {is3DView ? 'View in 2D' : 'View in 3D'}
@@ -1067,6 +1128,270 @@ const ArchitecturalDesigner: React.FC = () => {
               return null;
             })()}
           </div>
+        </div>
+      )}
+      {selectedTool === 'wall' && (
+        <div className="absolute top-4 right-4 bg-white rounded-lg shadow-xl border-2 border-blue-200 p-4 min-w-96 z-50">
+          <div className="flex items-center justify-between mb-4">
+            <div className="text-lg font-bold text-gray-800">🏗️ Wall Creation Tool</div>
+            <button
+              onClick={() => setSelectedTool('select')}
+              className="text-gray-400 hover:text-gray-600 transition-colors"
+              title="Close panel"
+            >
+              <X size={20} />
+            </button>
+          </div>
+
+          {/* Wall Creation Mode Toggle */}
+          <div className="flex gap-2 mb-4">
+            <button
+              onClick={() => {
+                setWallCreationMode('draw');
+                setIsDrawing(false);
+                setCurrentLine(null);
+              }}
+              className={`flex-1 py-3 px-4 rounded-lg text-sm font-bold transition-colors ${wallCreationMode === 'draw'
+                  ? 'bg-green-600 text-white shadow-lg'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+            >
+              ✏️ Free Draw Mode
+            </button>
+            <button
+              onClick={() => {
+                setWallCreationMode('custom');
+                setIsDrawing(false);
+                setCurrentLine(null);
+              }}
+              className={`flex-1 py-3 px-4 rounded-lg text-sm font-bold transition-colors ${wallCreationMode === 'custom'
+                  ? 'bg-blue-600 text-white shadow-lg'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+            >
+              🏠 Room Builder
+            </button>
+          </div>
+
+          {wallCreationMode === 'custom' ? (
+            // Custom Room Mode
+            <>
+              <div className="grid grid-cols-3 gap-3 mb-4">
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Room Width (ft)</label>
+                  <input
+                    type="number"
+                    value={wallWidth}
+                    onChange={(e) => setWallWidth(Math.max(4, parseFloat(e.target.value) || 12))}
+                    className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                    min="4"
+                    max="40"
+                    step="0.5"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Room Height (ft)</label>
+                  <input
+                    type="number"
+                    value={wallHeight}
+                    onChange={(e) => setWallHeight(Math.max(4, parseFloat(e.target.value) || 10))}
+                    className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                    min="4"
+                    max="40"
+                    step="0.5"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Wall Thickness (ft)</label>
+                  <input
+                    type="number"
+                    value={wallThickness}
+                    onChange={(e) => setWallThickness(Math.max(0.25, parseFloat(e.target.value) || 0.5))}
+                    className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                    min="0.25"
+                    max="1"
+                    step="0.25"
+                  />
+                </div>
+              </div>
+
+              {/* Preset Room Sizes */}
+              <div className="mb-4">
+                <div className="text-xs font-medium text-gray-600 mb-2">Common Room Sizes:</div>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    onClick={() => { setWallWidth(8); setWallHeight(8); }}
+                    className="px-2 py-1 bg-gray-100 rounded text-xs hover:bg-gray-200 transition-colors"
+                  >
+                    8' × 8' Square
+                  </button>
+                  <button
+                    onClick={() => { setWallWidth(10); setWallHeight(8); }}
+                    className="px-2 py-1 bg-gray-100 rounded text-xs hover:bg-gray-200 transition-colors"
+                  >
+                    10' × 8' Small
+                  </button>
+                  <button
+                    onClick={() => { setWallWidth(12); setWallHeight(10); }}
+                    className="px-2 py-1 bg-gray-100 rounded text-xs hover:bg-gray-200 transition-colors"
+                  >
+                    12' × 10' Kitchen
+                  </button>
+                  <button
+                    onClick={() => { setWallWidth(14); setWallHeight(12); }}
+                    className="px-2 py-1 bg-gray-100 rounded text-xs hover:bg-gray-200 transition-colors"
+                  >
+                    14' × 12' Dining
+                  </button>
+                  <button
+                    onClick={() => { setWallWidth(16); setWallHeight(14); }}
+                    className="px-2 py-1 bg-gray-100 rounded text-xs hover:bg-gray-200 transition-colors"
+                  >
+                    16' × 14' Large
+                  </button>
+                  <button
+                    onClick={() => { setWallWidth(20); setWallHeight(16); }}
+                    className="px-2 py-1 bg-gray-100 rounded text-xs hover:bg-gray-200 transition-colors"
+                  >
+                    20' × 16' XL
+                  </button>
+                </div>
+              </div>
+
+              {/* Room Preview */}
+              <div className="mb-4 bg-gray-50 p-3 rounded-lg border">
+                <div className="text-xs font-medium text-gray-700 mb-2">Room Preview:</div>
+                <div className="text-xs text-gray-600 space-y-1">
+                  <div className="flex justify-between">
+                    <span>Room Dimensions:</span>
+                    <span className="font-medium">{wallWidth}' × {wallHeight}'</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Wall Thickness:</span>
+                    <span className="font-medium">{wallThickness}' ({wallThickness * 12}")</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Wall Height:</span>
+                    <span className="font-medium">{wallHeight}' ({wallHeight * 12}")</span>
+                  </div>
+                  <div className="flex justify-between border-t pt-1">
+                    <span className="font-medium">Floor Area:</span>
+                    <span className="font-medium text-blue-600">{(wallWidth * wallHeight).toFixed(1)} sq ft</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-green-600 font-medium">Output:</span>
+                    <span className="font-medium text-green-600">4 connected walls</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Create Room Button */}
+              <button
+                onClick={handleWallSubmit}
+                className="w-full py-3 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 active:bg-blue-800 transition-all duration-200 font-medium shadow-sm flex items-center justify-center gap-2 transform hover:scale-105 active:scale-95"
+              >
+                <span className="text-lg">🏠</span>
+                <span>Create Room ({wallWidth}' × {wallHeight}')</span>
+              </button>
+
+              <div className="text-xs text-blue-600 text-center mt-2 space-x-3">
+                <span>Press <kbd className="px-1.5 py-0.5 bg-blue-100 rounded text-xs font-mono">Enter</kbd> to create</span>
+                <span>Press <kbd className="px-1.5 py-0.5 bg-blue-100 rounded text-xs font-mono">Esc</kbd> to close</span>
+              </div>
+            </>
+          ) : (
+            // FREE DRAW MODE - Clear and visible fields
+            <div className="bg-green-50 border-2 border-green-200 rounded-lg p-4">
+              <div className="text-center mb-4">
+                <h3 className="text-lg font-bold text-green-800 mb-1">✏️ FREE DRAW MODE</h3>
+                <p className="text-sm text-green-700">Draw walls anywhere on canvas</p>
+              </div>
+
+              {/* DRAW MODE FIELDS - Very prominent */}
+              <div className="bg-white rounded-lg p-4 border border-green-300 mb-4">
+                <div className="text-sm font-bold text-gray-700 mb-3">Wall Properties:</div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-600 mb-2">Wall Height (ft)</label>
+                    <input
+                      type="number"
+                      value={wallHeight}
+                      onChange={(e) => setWallHeight(Math.max(4, parseFloat(e.target.value) || 10))}
+                      className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg text-sm font-bold"
+                      min="4"
+                      max="20"
+                      step="1"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-600 mb-2">Thickness (ft)</label>
+                    <input
+                      type="number"
+                      value={wallThickness}
+                      onChange={(e) => setWallThickness(Math.max(0.25, parseFloat(e.target.value) || 0.5))}
+                      className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg text-sm font-bold"
+                      min="0.25"
+                      max="1"
+                      step="0.25"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Wall Type Presets - More prominent */}
+              <div className="mb-4">
+                <div className="text-sm font-bold text-gray-700 mb-3">Quick Presets:</div>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    onClick={() => { setWallHeight(8); setWallThickness(0.5); }}
+                    className="px-4 py-3 bg-blue-100 hover:bg-blue-200 rounded-lg text-sm font-bold transition-colors border border-blue-300"
+                  >
+                    🏠 Standard<br />
+                    <span className="text-xs">8' × 6"</span>
+                  </button>
+                  <button
+                    onClick={() => { setWallHeight(9); setWallThickness(0.75); }}
+                    className="px-4 py-3 bg-purple-100 hover:bg-purple-200 rounded-lg text-sm font-bold transition-colors border border-purple-300"
+                  >
+                    ⬆️ High Ceiling<br />
+                    <span className="text-xs">9' × 9"</span>
+                  </button>
+                  <button
+                    onClick={() => { setWallHeight(10); setWallThickness(1); }}
+                    className="px-4 py-3 bg-orange-100 hover:bg-orange-200 rounded-lg text-sm font-bold transition-colors border border-orange-300"
+                  >
+                    🏢 Commercial<br />
+                    <span className="text-xs">10' × 12"</span>
+                  </button>
+                  <button
+                    onClick={() => { setWallHeight(7); setWallThickness(0.25); }}
+                    className="px-4 py-3 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-bold transition-colors border border-gray-300"
+                  >
+                    📋 Partition<br />
+                    <span className="text-xs">7' × 3"</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Instructions - More detailed */}
+              <div className="bg-green-100 border border-green-400 rounded-lg p-4">
+                <div className="text-sm font-bold text-green-800 mb-2">✏️ How to Draw Freely:</div>
+                <div className="space-y-2 text-xs text-green-700">
+                  <div className="flex items-start gap-2">
+                    <span className="font-bold">Method 1:</span>
+                    <span>Click & hold → Drag → Release (instant wall)</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="font-bold">Method 2:</span>
+                    <span>Click → Move mouse → Click again (precise)</span>
+                  </div>
+                  <div className="border-t border-green-300 pt-2 mt-2">
+                    <span className="font-bold">Current settings:</span> {wallHeight}' height × {wallThickness}' thick
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
