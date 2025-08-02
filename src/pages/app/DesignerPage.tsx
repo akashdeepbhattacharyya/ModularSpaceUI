@@ -1,17 +1,3 @@
-/*
- * KITCHEN DESIGNER WITH ADVANCED 3D SYSTEM
- * 
- * REQUIRED DEPENDENCIES:
- * npm install @react-three/fiber @react-three/drei three
- * 
- * Features:
- * - Professional 2D design tools
- * - Advanced 3D visualization with Kitchen3D system
- * - Material selection for cabinets and floors
- * - Interactive hover effects
- * - Automatic room scaling
- * - U-shaped wall display for kitchens
- */
 
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Trash2, Download, Move, Home, Square, Minus, ZoomIn, ZoomOut, RotateCcw, ChevronRight, ChevronDown, Grid3X3, Box, X, Eye } from 'lucide-react';
@@ -1283,7 +1269,7 @@ const Designer3DCanvas: React.FC<{
   if (!isVisible) return null;
 
   return (
-    <div className="w-64 bg-white border-l border-gray-300 h-full overflow-y-auto">
+    <div className="w-80 bg-white border-l border-gray-300 h-full overflow-y-auto">
       <div className="p-4 border-b border-gray-200">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-gray-800">Kitchen 3D View</h2>

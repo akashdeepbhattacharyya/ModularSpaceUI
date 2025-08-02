@@ -81,7 +81,7 @@ const PublicLayout: React.FC = () => {
                           <motion.div
                             initial={{ opacity: 0, y: -10 }}
                             animate={{ opacity: 1, y: 0 }}
-                            className="absolute left-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5"
+                            className="absolute left-0 mt-0 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5"
                           >
                             <div className="py-1">
                               {item.dropdown.map((subItem) => (
@@ -100,7 +100,7 @@ const PublicLayout: React.FC = () => {
                     ) : (
                       <Link
                         to={item.href}
-                        className="text-gray-700 hover:text-blue-600 px-3 py-2 text-sm font-medium"
+                        className="text-gray-700 hover:text-blue-600 px-3 py-2 text-sm font-medium inline-flex items-center"
                       >
                         {item.name}
                       </Link>
